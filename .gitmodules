@@ -1,0 +1,3 @@
+[submodule "ext/snaphu"]
+	path = ext/snaphu
+	url = git@github.com:gmgunter/snaphu.git
