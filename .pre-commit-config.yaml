@@ -1,0 +1,22 @@
+ci:
+  autofix_prs: false
+
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: "v4.5.0"
+    hooks:
+      - id: check-added-large-files
+      - id: check-case-conflict
+      - id: check-merge-conflict
+      - id: check-toml
+      - id: end-of-file-fixer
+      - id: mixed-line-ending
+      - id: name-tests-test
+        args: [--pytest-test-first]
+      - id: trailing-whitespace
+
+  - repo: https://github.com/sirosen/texthooks
+    rev: "0.6.2"
+    hooks:
+      - id: fix-smartquotes
+      - id: fix-ligatures
