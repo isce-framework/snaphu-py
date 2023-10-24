@@ -7,6 +7,9 @@ name = "snaphu"
 requires-python = ">=3.8"
 dynamic = ["version"]
 
+[project.optional-dependencies]
+test = ["pytest>=6", "pytest-cov>=3"]
+
 [tool.black]
 preview = true
 
