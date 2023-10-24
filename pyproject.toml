@@ -12,6 +12,19 @@ preview = true
 [tool.mypy]
 strict = true
 
+[tool.pytest.ini_options]
+addopts = [
+    "-ra",
+    "--showlocals",
+    "--strict-markers",
+    "--strict-config",
+    "--cov=snaphu",
+]
+xfail_strict = true
+filterwarnings = ["error"]
+log_cli_level = "INFO"
+testpaths = ["test"]
+
 [tool.ruff]
 select = [
     "A",   # flake8-builtins
