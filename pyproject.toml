@@ -4,6 +4,7 @@ build-backend = "scikit_build_core.build"
 
 [project]
 name = "snaphu"
+requires-python = ">=3.8"
 dynamic = ["version"]
 
 [tool.black]
