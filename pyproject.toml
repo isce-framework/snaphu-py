@@ -4,7 +4,7 @@ build-backend = "scikit_build_core.build"
 
 [project]
 name = "snaphu"
-requires-python = ">=3.8"
+requires-python = ">=3.9"
 dynamic = ["version"]
 
 [project.optional-dependencies]
@@ -15,6 +15,10 @@ preview = true
 
 [tool.mypy]
 strict = true
+
+[[tool.mypy.overrides]]
+module = "test.*"
+disable_error_code = ["no-untyped-def"]
 
 [tool.pytest.ini_options]
 addopts = [

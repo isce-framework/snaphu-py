@@ -44,4 +44,4 @@ target_link_libraries(snaphu PRIVATE ${C_MATH_LIBRARY})
 
 # Install the executable at the specified location. Scikit-build-core takes care of
 # setting the install prefix to `site-packages`.
-install(TARGETS snaphu RUNTIME DESTINATION ${SKBUILD_PROJECT_NAME}/_core)
+install(TARGETS snaphu RUNTIME DESTINATION ${SKBUILD_PROJECT_NAME})
