@@ -1,9 +1,11 @@
 import os
+import re
 import tempfile
 from pathlib import Path
 
 import pytest
 
+import snaphu
 from snaphu._snaphu import get_snaphu_executable, run_snaphu
 
 
@@ -12,6 +14,14 @@ def test_get_snaphu_executable():
     with get_snaphu_executable() as snaphu_exe:
         assert Path(snaphu_exe).is_file()
         assert os.access(snaphu_exe, os.X_OK)
+
+
+def test_get_snaphu_version():
+    version = snaphu.get_snaphu_version()
+
+    # The result should be a string in '<major>.<minor>.<patch>' format.
+    regex = re.compile(r"^[0-9]+(\.[0-9]+){2}$")
+    assert regex.fullmatch(version)
 
 
 class TestRunSnaphu:
