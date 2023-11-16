@@ -5,6 +5,7 @@ build-backend = "scikit_build_core.build"
 [project]
 name = "snaphu"
 requires-python = ">=3.9"
+dependencies = ["numpy>=1.20"]
 dynamic = ["version"]
 
 [project.optional-dependencies]
