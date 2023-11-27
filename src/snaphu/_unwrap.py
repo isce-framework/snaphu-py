@@ -385,7 +385,7 @@ def unwrap(
     check_dtypes(igram, corr, unw, conncomp, mask)
 
     if nlooks < 1.0:
-        errmsg = f"nlooks must >= 1, instead got {nlooks}"
+        errmsg = f"nlooks must be >= 1, instead got {nlooks}"
         raise ValueError(errmsg)
 
     if cost == "topo":

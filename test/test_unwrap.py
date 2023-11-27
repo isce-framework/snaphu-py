@@ -81,7 +81,7 @@ class TestUnwrap:
         shape = (128, 128)
         igram = np.empty(shape, dtype=np.complex64)
         corr = np.empty(shape, dtype=np.float32)
-        pattern = "^nlooks must >= 1, instead got 0$"
+        pattern = "^nlooks must be >= 1, instead got 0$"
         with pytest.raises(ValueError, match=pattern):
             snaphu.unwrap(igram, corr, nlooks=0)
 
