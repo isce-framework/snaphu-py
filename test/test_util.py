@@ -1,4 +1,5 @@
 import itertools
+import shutil
 import tempfile
 from collections.abc import Iterable
 from pathlib import Path
@@ -136,3 +137,20 @@ class TestScratchDirectory:
                 assert not scratchdir.exists()
             else:
                 assert scratchdir.is_dir()
+
+    @pytest.mark.parametrize("delete", [True, False])
+    def test_tempdir_delete(self, *, delete: bool):
+        try:
+            # Create a scratch directory using `mkdtemp()`.
+            with scratch_directory(delete=delete) as scratchdir:
+                assert scratchdir.is_dir()
+
+            # Check that the scratch directory was removed if `delete` was True.
+            if delete:
+                assert not scratchdir.exists()
+            else:
+                assert scratchdir.exists()
+        finally:
+            # Clean up the directory if it wasn't automatically removed.
+            if scratchdir.is_dir():
+                shutil.rmtree(scratchdir)

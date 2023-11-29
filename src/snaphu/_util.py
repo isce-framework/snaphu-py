@@ -7,7 +7,7 @@ from collections.abc import Generator, Iterable, Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
-from tempfile import TemporaryDirectory
+from tempfile import mkdtemp
 
 import numpy as np
 from numpy.typing import ArrayLike
@@ -175,13 +175,12 @@ def scratch_directory(
         the file system upon exiting the context manager scope.
     """
     if dir_ is None:
-        with TemporaryDirectory(delete=delete) as tmpdir:
-            yield Path(tmpdir)
+        scratchdir = Path(mkdtemp())
     else:
         scratchdir = Path(dir_)
         scratchdir.mkdir(parents=True, exist_ok=True)
 
-        yield scratchdir
+    yield scratchdir
 
-        if delete:
-            shutil.rmtree(scratchdir)
+    if delete:
+        shutil.rmtree(scratchdir)
