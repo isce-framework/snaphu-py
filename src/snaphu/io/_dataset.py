@@ -24,16 +24,20 @@ class InputDataset(Protocol):
     OutputDataset
     """
 
-    dtype: np.dtype
-    """numpy.dtype : Data-type of the array's elements."""
-    shape: tuple[int, ...]
-    """tuple of int : Tuple of array dimensions."""
-    ndim: int
-    """int : Number of array dimensions."""
+    @property
+    def dtype(self) -> np.dtype:
+        """numpy.dtype : Data-type of the array's elements."""
+
+    @property
+    def shape(self) -> tuple[int, ...]:
+        """tuple of int : Tuple of array dimensions."""  # noqa: D403
+
+    @property
+    def ndim(self) -> int:
+        """int : Number of array dimensions."""  # noqa: D403
 
     def __getitem__(self, key: slice | tuple[slice, ...], /) -> ArrayLike:
         """Read a block of data."""
-        ...  # pragma: no cover
 
 
 @runtime_checkable
@@ -51,13 +55,17 @@ class OutputDataset(Protocol):
     InputDataset
     """
 
-    dtype: np.dtype
-    """numpy.dtype : Data-type of the array's elements."""
-    shape: tuple[int, ...]
-    """tuple of int : Tuple of array dimensions."""
-    ndim: int
-    """int : Number of array dimensions."""
+    @property
+    def dtype(self) -> np.dtype:
+        """numpy.dtype : Data-type of the array's elements."""
+
+    @property
+    def shape(self) -> tuple[int, ...]:
+        """tuple of int : Tuple of array dimensions."""  # noqa: D403
+
+    @property
+    def ndim(self) -> int:
+        """int : Number of array dimensions."""  # noqa: D403
 
     def __setitem__(self, key: slice | tuple[slice, ...], value: np.ndarray, /) -> None:
         """Write a block of data."""
-        ...  # pragma: no cover
