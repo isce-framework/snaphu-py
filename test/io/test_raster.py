@@ -190,7 +190,7 @@ class TestRaster:
         assert arr.dtype == geotiff_raster.dtype
 
     def test_setitem_getitem_roundtrip(self, geotiff_raster: snaphu.io.Raster):
-        data = np.arange(20).reshape(4, 5)
+        data = np.arange(20, dtype=np.int32).reshape(4, 5)
         idx = np.s_[100:104, 200:205]
         geotiff_raster[idx] = data
         out = geotiff_raster[idx]
