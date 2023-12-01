@@ -153,8 +153,7 @@ def scratch_directory(
 
     If `dir_` is a path-like object, a directory will be created at the specified
     file system path if it did not already exist. Otherwise, if `dir_` is None, a
-    temporary directory will instead be created as though by
-    ``tempfile.TemporaryDirectory()``.
+    temporary directory will instead be created as though by ``tempfile.mkdtemp()``.
 
     The directory may be automatically removed from the file system upon exiting the
     context manager.
