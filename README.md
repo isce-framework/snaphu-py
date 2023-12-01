@@ -36,8 +36,8 @@ import snaphu
 
 # Simulate a 512x512 interferogram containing a simple diagonal phase ramp with multiple
 # fringes.
-y, x = np.ogrid[-2.5:2.5:512j, -2.5:2.5:512j]
-igram = np.exp(1j * np.pi * x * y)
+y, x = np.ogrid[-3:3:512j, -3:3:512j]
+igram = np.exp(1j * np.pi * (x + y))
 
 # Sample coherence for an interferogram with no noise.
 corr = np.ones(igram.shape, dtype=np.float32)

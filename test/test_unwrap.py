@@ -8,9 +8,9 @@ class TestUnwrap:
     @pytest.mark.parametrize("cost", ["defo", "smooth"])
     @pytest.mark.parametrize("init", ["mst", "mcf"])
     def test_unwrapped_phase(self, cost: str, init: str):
-        # Simulate interferogram containing a diagonal phase ramp with ~8 fringes.
+        # Simulate interferogram containing a diagonal phase ramp with multiple fringes.
         y, x = np.ogrid[-3:3:512j, -3:3:512j]
-        phase = np.pi * x * y
+        phase = np.pi * (x + y)
         igram = np.exp(1j * phase)
 
         # Sample coherence for an interferogram with no noise.
@@ -26,9 +26,9 @@ class TestUnwrap:
         np.testing.assert_allclose(unw, phase + offset, atol=1e-3)
 
     def test_mask(self):
-        # Simulate interferogram containing a diagonal phase ramp with ~8 fringes.
+        # Simulate interferogram containing a diagonal phase ramp with multiple fringes.
         y, x = np.ogrid[-3:3:512j, -3:3:512j]
-        phase = np.pi * x * y
+        phase = np.pi * (x + y)
         igram = np.exp(1j * phase)
 
         # Sample coherence for an interferogram with no noise.
