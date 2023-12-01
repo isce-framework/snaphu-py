@@ -280,7 +280,7 @@ def copy_blockwise(
 
 def unwrap(
     igram: InputDataset,
-    corr: InputDataset,
+    coherence: InputDataset,
     nlooks: float,
     cost: str = "smooth",
     init: str = "mcf",
@@ -309,7 +309,7 @@ def unwrap(
     ----------
     igram : snaphu.io.InputDataset
         The input interferogram. A 2-D complex-valued array.
-    corr : snaphu.io.InputDataset
+    coherence : snaphu.io.InputDataset
         The sample coherence magnitude. Must be a floating-point array with the same
         dimensions as the input interferogram. Valid coherence values are in the range
         [0, 1].
@@ -383,8 +383,8 @@ def unwrap(
         conncomp = np.zeros(shape=igram.shape, dtype=np.uint32)
 
     # Ensure that input & output datasets have valid dimensions and datatypes.
-    check_shapes(igram, corr, unw, conncomp, mask)
-    check_dtypes(igram, corr, unw, conncomp, mask)
+    check_shapes(igram, coherence, unw, conncomp, mask)
+    check_dtypes(igram, coherence, unw, conncomp, mask)
 
     if nlooks < 1.0:
         errmsg = f"nlooks must be >= 1, instead got {nlooks}"
@@ -414,8 +414,8 @@ def unwrap(
 
         # Copy the input coherence data to a raw binary file in the scratch directory.
         _, tmp_corr = mkstemp(dir=dir_, prefix="snaphu.corr.", suffix=".f4")
-        tmp_corr_mmap = np.memmap(tmp_corr, dtype=np.float32, shape=corr.shape)
-        copy_blockwise(corr, tmp_corr_mmap)
+        tmp_corr_mmap = np.memmap(tmp_corr, dtype=np.float32, shape=coherence.shape)
+        copy_blockwise(coherence, tmp_corr_mmap)
 
         # If a mask was provided, copy the mask data to a raw binary file in the scratch
         # directory.
