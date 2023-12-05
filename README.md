@@ -1,5 +1,8 @@
 # snaphu-py
 
+[![CI](https://github.com/isce-framework/snaphu-py/actions/workflows/ci.yml/badge.svg)](https://github.com/isce-framework/snaphu-py/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/isce-framework/snaphu-py/graph/badge.svg?token=IV41TI56EA)](https://codecov.io/gh/isce-framework/snaphu-py)
+
 A simple Python wrapper for the Statistical-Cost, Network-Flow Algorithm for Phase
 Unwrapping (SNAPHU)
 
