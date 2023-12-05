@@ -1,0 +1,49 @@
+name: CI
+
+on:
+  pull_request:
+  push: { branches: [main] }
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    strategy:
+      matrix:
+        os:
+          - label: Linux
+            runner: ubuntu-latest
+          - label: macOS
+            runner: macos-latest
+      fail-fast: false
+    name: Build & test (${{ matrix.os.label }})
+    runs-on: ${{ matrix.os.runner }}
+    steps:
+      - uses: actions/checkout@v4
+        with: { submodules: true }
+      - uses: actions/setup-python@v4
+      - run: pip install ".[raster,test]" -vv
+      - run: pytest -vv
+
+  min-reqs:
+    name: Build & test (minimum requirements)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { submodules: true }
+      - uses: actions/setup-python@v4
+        with: { python-version: "3.9" }
+      - run: pip install -c ci/min-reqs.txt ".[raster,test]" -vv
+      - run: pytest -vv
+
+  no-optional-deps:
+    name: Build & test (no optional dependencies)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { submodules: true }
+      - uses: actions/setup-python@v4
+      - run: pip install ".[test]" -vv
+      - run: pytest -vv
