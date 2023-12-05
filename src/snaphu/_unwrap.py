@@ -6,7 +6,7 @@ import textwrap
 from dataclasses import dataclass
 from pathlib import Path
 from tempfile import mkstemp
-from typing import overload
+from typing import cast, overload
 
 import numpy as np
 
@@ -17,6 +17,49 @@ from .io import InputDataset, OutputDataset
 __all__ = [
     "unwrap",
 ]
+
+
+@dataclass(frozen=True)
+class TilingParams:
+    """
+    SNAPHU configuration parameters affecting scene tiling and parallel processing.
+
+    Parameters
+    ----------
+    ntilerow, ntilecol : int, optional
+        Number of tiles along the row/column directions. If `ntilerow` and `ntilecol`
+        are both 1 (the default), the interferogram will be unwrapped as a single tile.
+    rowovrlp, colovrlp : int, optional
+        Overlap, in number of rows/columns, between neighboring tiles. Defaults to 0.
+    nproc : int, optional
+        Maximum number of child processes to spawn for parallel tile unwrapping.
+        Defaults to 1.
+    """
+
+    ntilerow: int = 1
+    ntilecol: int = 1
+    rowovrlp: int = 0
+    colovrlp: int = 0
+    nproc: int = 1
+
+    def to_string(self) -> str:
+        """
+        Write SNAPHU tiling parameters to a string.
+
+        Creates a multi-line string in SNAPHU configuration file format.
+
+        Returns
+        -------
+        str
+            The output string.
+        """
+        return textwrap.dedent(f"""\
+            NTILEROW {self.ntilerow}
+            NTILECOL {self.ntilecol}
+            ROWOVRLP {self.rowovrlp}
+            COLOVRLP {self.colovrlp}
+            NPROC {self.nproc}
+        """)
 
 
 @dataclass(frozen=True)
@@ -45,6 +88,9 @@ class SnaphuConfig:
     bytemaskfile : path-like or None, optional
         An optional file path of a byte mask file. If None, no mask is applied. Defaults
         to None.
+    tiling_params : TilingParams or None, optional
+        Optional additional configuration parameters affecting scene tiling and parallel
+        processing. Defaults to None.
     """
 
     infile: str | os.PathLike[str]
@@ -56,6 +102,7 @@ class SnaphuConfig:
     statcostmode: str
     initmethod: str
     bytemaskfile: str | os.PathLike[str] | None = None
+    tiling_params: TilingParams | None = None
 
     def to_string(self) -> str:
         """
@@ -85,6 +132,8 @@ class SnaphuConfig:
 
         if self.bytemaskfile is not None:
             config += f"BYTEMASKFILE {os.fspath(self.bytemaskfile)}\n"
+        if self.tiling_params is not None:
+            config += self.tiling_params.to_string()
 
         return config
 
@@ -250,6 +299,70 @@ def check_dtypes(
         raise TypeError(errmsg)
 
 
+def normalize_and_validate_tiling_params(
+    ntiles: tuple[int, int],
+    tile_overlap: int | tuple[int, int],
+    nproc: int,
+) -> tuple[tuple[int, int], tuple[int, int], int]:
+    """
+    Normalize and validate inputs related to tiling and multiprocessing.
+
+    Parameters
+    ----------
+    ntiles : (int, int)
+        Number of tiles along the row/column directions.
+    tile_overlap : int or (int, int)
+        Overlap, in pixels, between neighboring tiles.
+    nproc : int
+        Maximum number of child processes to spawn for parallel tile unwrapping.
+
+    Returns
+    -------
+    ntiles : (int, int)
+        `ntiles` normalized to a pair of positive integers.
+    tile_overlap : (int, int)
+        `tile_overlap` normalized to a pair of nonnegative integers.
+    nproc : int
+        `nproc` as a positive integer.
+    """
+    # Normalize `ntiles` to a tuple and ensure its contents are two positive-valued
+    # integers.
+    ntiles = tuple(ntiles)  # type: ignore[assignment]
+    if len(ntiles) != 2:
+        errmsg = f"ntiles must be a pair of ints, instead got {ntiles=}"
+        raise ValueError(errmsg)
+    if not all(n >= 1 for n in ntiles):
+        errmsg = f"ntiles may not contain negative or zero values, got {ntiles=}"
+        raise ValueError(errmsg)
+
+    # If `tile_overlap` is iterable, ensure it's a tuple. Otherwise, assume it's a
+    # single integer.
+    try:
+        tile_overlap = tuple(tile_overlap)  # type: ignore[arg-type,assignment]
+    except TypeError:
+        tile_overlap = (tile_overlap, tile_overlap)  # type: ignore[assignment]
+
+    # Convince static type checkers that `tile_overlap` is now a pair of ints.
+    tile_overlap = cast(tuple[int, int], tile_overlap)
+
+    # Ensure the contents of `tile_overlap` are two nonnegative integers.
+    if len(tile_overlap) != 2:
+        errmsg = (
+            f"tile_overlap must be an int or pair of ints, instead got {tile_overlap=}"
+        )
+        raise ValueError(errmsg)
+    if not all(n >= 0 for n in tile_overlap):
+        errmsg = f"tile_overlap may not contain negative values, got {tile_overlap=}"
+        raise ValueError(errmsg)
+
+    # If `nproc` is less than 1, use all available processors. Fall back to serial
+    # execution if the number of available processors cannot be determined.
+    if nproc < 1:
+        nproc = os.cpu_count() or 1
+
+    return ntiles, tile_overlap, nproc
+
+
 def copy_blockwise(
     src: InputDataset,
     dst: OutputDataset,
@@ -288,6 +401,9 @@ def unwrap(
     init: str = "mcf",
     *,
     mask: InputDataset | None = None,
+    ntiles: tuple[int, int] = (1, 1),
+    tile_overlap: int | tuple[int, int] = 0,
+    nproc: int = 1,
     scratchdir: str | os.PathLike[str] | None = None,
     delete_scratch: bool = True,
     unw: OutputDataset,
@@ -305,6 +421,9 @@ def unwrap(
     init: str = "mcf",
     *,
     mask: InputDataset | None = None,
+    ntiles: tuple[int, int] = (1, 1),
+    tile_overlap: int | tuple[int, int] = 0,
+    nproc: int = 1,
     scratchdir: str | os.PathLike[str] | None = None,
     delete_scratch: bool = True,
 ) -> tuple[np.ndarray, np.ndarray]: ...
@@ -318,6 +437,9 @@ def unwrap(  # type: ignore[no-untyped-def]
     init="mcf",
     *,
     mask=None,
+    ntiles=(1, 1),
+    tile_overlap=0,
+    nproc=1,
     scratchdir=None,
     delete_scratch=True,
     unw=None,
@@ -361,6 +483,19 @@ def unwrap(  # type: ignore[no-untyped-def]
         pixels that should be masked out. If provided, it must have the same dimensions
         as the input interferogram and boolean or 8-bit integer datatype. Defaults to
         None.
+    ntiles : (int, int), optional
+        Number of tiles along the row/column directions. If `ntiles` is (1, 1), then the
+        interferogram will be unwrapped as a single tile. Increasing the number of tiles
+        may improve runtime and reduce peak memory utilization, but may also introduce
+        tile boundary artifacts in the unwrapped result. Defaults to (1, 1).
+    tile_overlap : int or (int, int), optional
+        Overlap, in pixels, between neighboring tiles. Increasing overlap may help to
+        avoid phase discontinuities between tiles. If `tile_overlap` is a scalar
+        integer, the number of overlapping rows and columns will be the same. Defaults
+        to 0.
+    nproc : int, optional
+        Maximum number of child processes to spawn for parallel tile unwrapping. If
+        `nproc` is less than 1, use all available processors. Defaults to 1.
     scratchdir : path-like or None, optional
         Scratch directory where intermediate processing artifacts are written.
         If the specified directory does not exist, it will be created. If None,
@@ -436,6 +571,11 @@ def unwrap(  # type: ignore[no-untyped-def]
         errmsg = f"init method must be in {init_methods}, instead got {init!r}"
         raise ValueError(errmsg)
 
+    # Validate inputs related to tiling and coerce them to the expected types.
+    ntiles, tile_overlap, nproc = normalize_and_validate_tiling_params(
+        ntiles=ntiles, tile_overlap=tile_overlap, nproc=nproc
+    )
+
     with scratch_directory(scratchdir, delete=delete_scratch) as dir_:
         # Create a raw binary file in the scratch directory for the interferogram and
         # copy the input data to it. (`mkstemp` is used to avoid data races in case the
@@ -462,6 +602,14 @@ def unwrap(  # type: ignore[no-untyped-def]
         _, tmp_unw = mkstemp(dir=dir_, prefix="snaphu.unw.", suffix=".f4")
         _, tmp_conncomp = mkstemp(dir=dir_, prefix="snaphu.conncomp.", suffix=".u4")
 
+        tiling_params = TilingParams(
+            ntilerow=ntiles[0],
+            ntilecol=ntiles[1],
+            rowovrlp=tile_overlap[0],
+            colovrlp=tile_overlap[1],
+            nproc=nproc,
+        )
+
         config = SnaphuConfig(
             infile=tmp_igram,
             corrfile=tmp_corr,
@@ -472,6 +620,7 @@ def unwrap(  # type: ignore[no-untyped-def]
             statcostmode=cost,
             initmethod=init,
             bytemaskfile=tmp_mask,
+            tiling_params=tiling_params,
         )
 
         # Write config parameters to file.

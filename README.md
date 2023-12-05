@@ -113,7 +113,40 @@ exiting the `with` block.
 
 ### Tiling and parallelism
 
-*TBD*
+The interferogram may be partitioned into multiple (possibly overlapping)
+regularly-sized rectangular blocks, each of which is unwrapped independently before
+being reassembled. This tiling strategy can significantly improve unwrapping runtime and
+reduce peak memory utilization, but may also introduce phase discontinuities between
+tiles. In order to mitigate such tiling artifacts, choosing a substantial overlap
+between tiles is recommended.
+
+Multiple tiles may be unwrapped simultaneously in parallel processes.
+
+The following example demonstrates tiled unwrapping using multiple processes:
+
+```python
+import numpy as np
+import snaphu
+
+# Simulate a 2048x2048 interferogram containing a simple diagonal phase ramp with many
+# fringes.
+y, x = np.ogrid[-12:12:2048j, -12:12:2048j]
+igram = np.exp(1j * np.pi * (x + y))
+
+# Sample coherence for an interferogram with no noise.
+corr = np.ones(igram.shape, dtype=np.float32)
+
+# Unwrap using a 4x4 grid of tiles in parallel using 8 processes.
+unw, conncomp = snaphu.unwrap(
+    igram, corr, nlooks=1.0, ntiles=(4, 4), tile_overlap=256, nproc=8
+)
+```
+
+The wrapped and unwrapped phase are shown below.
+
+<p align="center">
+  <img width="900" height="300" src="docs/assets/tiled-wrapped-unwrapped.png">
+</p>
 
 ## FAQ
 
