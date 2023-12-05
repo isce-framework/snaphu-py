@@ -417,7 +417,7 @@ def unwrap(
     delete_scratch: bool = True,
     unw: OutputDataset,
     conncomp: OutputDataset,
-) -> tuple[OutputDataset, OutputDataset]: ...
+) -> tuple[OutputDataset, OutputDataset]: ...  # pragma: no cover
 
 
 # If `unw` and `conncomp` aren't specified, return the outputs as two NumPy arrays.
@@ -435,7 +435,7 @@ def unwrap(
     nproc: int = 1,
     scratchdir: str | os.PathLike[str] | None = None,
     delete_scratch: bool = True,
-) -> tuple[np.ndarray, np.ndarray]: ...
+) -> tuple[np.ndarray, np.ndarray]: ...  # pragma: no cover
 
 
 def unwrap(  # type: ignore[no-untyped-def]

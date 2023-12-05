@@ -27,6 +27,10 @@ jobs:
         with: { python-version: ">=3.9" }
       - run: pip install ".[raster,test]" -vv
       - run: pytest -vv
+      - uses: codecov/codecov-action@v3
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          verbose: true
 
   min-reqs:
     name: Build & test (minimum requirements)
