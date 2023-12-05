@@ -51,6 +51,36 @@ class TestUnwrap:
         # the valid pixels and none of the invalid pixels.
         np.testing.assert_array_equal(conncomp, mask.astype(np.int32))
 
+    @pytest.mark.parametrize("nan", [np.nan, 1j * np.nan])
+    def test_nans(self, nan: complex):
+        # Simulate interferogram containing a diagonal phase ramp with multiple fringes.
+        y, x = np.ogrid[-3:3:512j, -3:3:512j]
+        phase = np.pi * (x + y)
+        igram = np.exp(1j * phase)
+
+        # Sample coherence for an interferogram with no noise.
+        corr = np.ones(igram.shape, dtype=np.float32)
+
+        # Create a binary mask of valid samples.
+        mask = np.zeros(igram.shape, dtype=np.bool_)
+        mask[128:-128] = True
+
+        # Set masked-out interferogram pixels to NaN.
+        igram[~mask] = nan
+
+        # Unwrap.
+        unw, conncomp = snaphu.unwrap(igram, corr, nlooks=1.0)
+
+        # The unwrapped phase may differ from the true phase by a fixed integer multiple
+        # of 2pi.
+        mean_diff = np.mean(unw[mask] - phase[mask])
+        offset = 2.0 * np.pi * np.round(mean_diff / (2.0 * np.pi))
+        np.testing.assert_allclose(unw[mask], phase[mask] + offset, atol=1e-3)
+
+        # There should be a single connected component (labeled 1) that contains all of
+        # the valid pixels and none of the invalid pixels.
+        np.testing.assert_array_equal(conncomp, mask.astype(np.int32))
+
     @pytest.mark.parametrize("nproc", [1, 2, -1])
     def test_tiling(self, nproc: int):
         # Simulate interferogram containing a diagonal phase ramp with multiple fringes.

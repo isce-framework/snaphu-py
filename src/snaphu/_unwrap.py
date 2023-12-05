@@ -367,6 +367,8 @@ def copy_blockwise(
     src: InputDataset,
     dst: OutputDataset,
     chunks: tuple[int, int] = (1024, 1024),
+    *,
+    nan_to_zero: bool = False,
 ) -> None:
     """
     Copy the contents of `src` to `dst` block-by-block.
@@ -379,6 +381,9 @@ def copy_blockwise(
         Destination dataset.
     chunks : (int, int), optional
         Block dimensions. Defaults to (1024, 1024).
+    nan_to_zero : bool, optional
+        If True, replace Not a Number (NaN) values in the array with zeros in the
+        output. Defaults to False.
     """
     shape = src.shape
     if dst.shape != shape:
@@ -389,7 +394,11 @@ def copy_blockwise(
         raise ValueError(errmsg)
 
     for block in BlockIterator(shape, chunks):
-        dst[block] = src[block]
+        if nan_to_zero:
+            nan_mask = np.isnan(src[block])
+            dst[block] = np.where(nan_mask, 0.0, src[block])
+        else:
+            dst[block] = src[block]
 
 
 @overload
@@ -462,11 +471,12 @@ def unwrap(  # type: ignore[no-untyped-def]
     Parameters
     ----------
     igram : snaphu.io.InputDataset
-        The input interferogram. A 2-D complex-valued array.
+        The input interferogram. A 2-D complex-valued array. Not a Number (NaN) values
+        in the array will be replaced with zeros.
     corr : snaphu.io.InputDataset
         The sample coherence magnitude. Must be a floating-point array with the same
         dimensions as the input interferogram. Valid coherence values are in the range
-        [0, 1].
+        [0, 1]. NaN values in the array will be replaced with zeros.
     nlooks : float
         The equivalent number of independent looks used to form the sample coherence. An
         estimate of the number of statistically independent samples averaged in the
@@ -582,12 +592,12 @@ def unwrap(  # type: ignore[no-untyped-def]
         # same scratch directory was used for multiple SNAPHU processes.)
         _, tmp_igram = mkstemp(dir=dir_, prefix="snaphu.igram.", suffix=".c8")
         tmp_igram_mmap = np.memmap(tmp_igram, dtype=np.complex64, shape=igram.shape)
-        copy_blockwise(igram, tmp_igram_mmap)
+        copy_blockwise(igram, tmp_igram_mmap, nan_to_zero=True)
 
         # Copy the input coherence data to a raw binary file in the scratch directory.
         _, tmp_corr = mkstemp(dir=dir_, prefix="snaphu.corr.", suffix=".f4")
         tmp_corr_mmap = np.memmap(tmp_corr, dtype=np.float32, shape=corr.shape)
-        copy_blockwise(corr, tmp_corr_mmap)
+        copy_blockwise(corr, tmp_corr_mmap, nan_to_zero=True)
 
         # If a mask was provided, copy the mask data to a raw binary file in the scratch
         # directory.
