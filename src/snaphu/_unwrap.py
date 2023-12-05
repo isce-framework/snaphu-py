@@ -6,6 +6,7 @@ import textwrap
 from dataclasses import dataclass
 from pathlib import Path
 from tempfile import mkstemp
+from typing import overload
 
 import numpy as np
 
@@ -278,6 +279,7 @@ def copy_blockwise(
         dst[block] = src[block]
 
 
+@overload
 def unwrap(
     igram: InputDataset,
     corr: InputDataset,
@@ -288,9 +290,39 @@ def unwrap(
     mask: InputDataset | None = None,
     scratchdir: str | os.PathLike[str] | None = None,
     delete_scratch: bool = True,
-    unw: OutputDataset | None = None,
-    conncomp: OutputDataset | None = None,
-) -> tuple[OutputDataset, OutputDataset]:
+    unw: OutputDataset,
+    conncomp: OutputDataset,
+) -> tuple[OutputDataset, OutputDataset]: ...
+
+
+# If `unw` and `conncomp` aren't specified, return the outputs as two NumPy arrays.
+@overload
+def unwrap(
+    igram: InputDataset,
+    corr: InputDataset,
+    nlooks: float,
+    cost: str = "smooth",
+    init: str = "mcf",
+    *,
+    mask: InputDataset | None = None,
+    scratchdir: str | os.PathLike[str] | None = None,
+    delete_scratch: bool = True,
+) -> tuple[np.ndarray, np.ndarray]: ...
+
+
+def unwrap(  # type: ignore[no-untyped-def]
+    igram,
+    corr,
+    nlooks,
+    cost="smooth",
+    init="mcf",
+    *,
+    mask=None,
+    scratchdir=None,
+    delete_scratch=True,
+    unw=None,
+    conncomp=None,
+):
     r"""
     Unwrap an interferogram using SNAPHU.
 
