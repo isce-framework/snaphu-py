@@ -51,6 +51,32 @@ class TestUnwrap:
         # the valid pixels and none of the invalid pixels.
         np.testing.assert_array_equal(conncomp, mask.astype(np.int32))
 
+    @pytest.mark.parametrize("nproc", [1, 2, -1])
+    def test_tiling(self, nproc: int):
+        # Simulate interferogram containing a diagonal phase ramp with multiple fringes.
+        y, x = np.ogrid[-6:6:1024j, -6:6:1024j]
+        phase = np.pi * (x + y)
+        igram = np.exp(1j * phase)
+
+        # Sample coherence for an interferogram with no noise.
+        corr = np.ones(igram.shape, dtype=np.float32)
+
+        # Unwrap.
+        unw, _ = snaphu.unwrap(
+            igram,
+            corr,
+            nlooks=1.0,
+            ntiles=(2, 2),
+            tile_overlap=(128, 128),
+            nproc=nproc,
+        )
+
+        # The unwrapped phase may differ from the true phase by a fixed integer multiple
+        # of 2pi.
+        mean_diff = np.mean(unw - phase)
+        offset = 2.0 * np.pi * np.round(mean_diff / (2.0 * np.pi))
+        np.testing.assert_allclose(unw, phase + offset, atol=1e-2)
+
     def test_shape_mismatch(self):
         igram = np.empty(shape=(128, 128), dtype=np.complex64)
         corr = np.empty(shape=(128, 129), dtype=np.float32)
@@ -100,3 +126,37 @@ class TestUnwrap:
         pattern = r"^init method must be in \{.*\}, instead got 'asdf'$"
         with pytest.raises(ValueError, match=pattern):
             snaphu.unwrap(igram, corr, nlooks=100.0, init="asdf")
+
+    def test_bad_ntiles(self):
+        shape = (128, 128)
+        igram = np.empty(shape, dtype=np.complex64)
+        corr = np.empty(shape, dtype=np.float32)
+
+        pattern = r"^ntiles must be a pair of ints, instead got ntiles=\(1, 2, 3\)$"
+        with pytest.raises(ValueError, match=pattern):
+            snaphu.unwrap(igram, corr, nlooks=100.0, ntiles=(1, 2, 3))  # type: ignore[arg-type]
+
+        pattern = (
+            r"^ntiles may not contain negative or zero values, got ntiles=\(1, 0\)$"
+        )
+        with pytest.raises(ValueError, match=pattern):
+            snaphu.unwrap(igram, corr, nlooks=100.0, ntiles=(1, 0))
+
+    def test_bad_tile_overlap(self):
+        shape = (128, 128)
+        igram = np.empty(shape, dtype=np.complex64)
+        corr = np.empty(shape, dtype=np.float32)
+
+        pattern = (
+            r"^tile_overlap must be an int or pair of ints, instead got"
+            r" tile_overlap=\(1, 2, 3\)$"
+        )
+        with pytest.raises(ValueError, match=pattern):
+            snaphu.unwrap(igram, corr, nlooks=100.0, tile_overlap=(1, 2, 3))  # type: ignore[arg-type]
+
+        pattern = (
+            r"^tile_overlap may not contain negative values, got"
+            r" tile_overlap=\(0, -1\)$"
+        )
+        with pytest.raises(ValueError, match=pattern):
+            snaphu.unwrap(igram, corr, nlooks=100.0, tile_overlap=(0, -1))
