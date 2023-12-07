@@ -23,7 +23,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with: { fetch-depth: 0, submodules: true }
-      - uses: actions/setup-python@v4
+      - uses: actions/setup-python@v5
         with: { python-version: ">=3.9" }
       - run: pip install ".[raster,test]" -vv
       - run: pytest -vv
@@ -38,7 +38,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with: { fetch-depth: 0, submodules: true }
-      - uses: actions/setup-python@v4
+      - uses: actions/setup-python@v5
         with: { python-version: "3.9" }
       - run: pip install -c ci/min-reqs.txt ".[raster,test]" -vv
       - run: pytest -vv
@@ -49,7 +49,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with: { fetch-depth: 0, submodules: true }
-      - uses: actions/setup-python@v4
+      - uses: actions/setup-python@v5
         with: { python-version: ">=3.9" }
       - run: pip install ".[test]" -vv
       - run: pytest -vv
