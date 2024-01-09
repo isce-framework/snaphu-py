@@ -97,6 +97,7 @@ class Raster(InputDataset, OutputDataset, AbstractContextManager["Raster"]):
         driver: str | None = None,
         crs: str | Mapping[str, str] | rasterio.crs.CRS | None = None,
         transform: rasterio.transform.Affine | None = None,
+        nodata: float | None = None,
         *,
         like: Raster | None = None,
         **kwargs: Any,
@@ -135,6 +136,11 @@ class Raster(InputDataset, OutputDataset, AbstractContextManager["Raster"]):
             Affine transformation mapping the pixel space to geographic space. If None,
             the geotransform of `like` will be used, if available, otherwise the default
             transform will be used. Defaults to None.
+        nodata : float or None, optional
+            Defines the pixel value to be interpreted as not valid data. If None, the
+            nodata value of `like` will be used, if available, otherwise no nodata value
+            will be populated. Only real-valued nodata values are supported, even if the
+            raster data is complex-valued. Defaults to None.
         like : Raster or None, optional
             An optional reference raster. If not None, the new raster will be created
             with the same metadata (shape, data-type, driver, CRS/geotransform, etc) as
@@ -158,6 +164,8 @@ class Raster(InputDataset, OutputDataset, AbstractContextManager["Raster"]):
             kwargs["crs"] = crs
         if transform is not None:
             kwargs["transform"] = transform
+        if nodata is not None:
+            kwargs["nodata"] = nodata
 
         # Always create a single-band dataset, even if `like` was part of a multi-band
         # dataset.
@@ -232,6 +240,15 @@ class Raster(InputDataset, OutputDataset, AbstractContextManager["Raster"]):
         coordinate reference system.
         """
         return self.dataset.transform
+
+    @property
+    def nodata(self) -> float | None:
+        """
+        float or None : The raster's nodata value (may be unset).
+
+        The raster's nodata value, or None if no nodata value was set.
+        """
+        return self.dataset.nodatavals[self.band - 1]  # type: ignore[no-any-return]
 
     @property
     def closed(self) -> bool:
