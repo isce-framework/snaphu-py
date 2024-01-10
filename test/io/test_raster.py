@@ -189,7 +189,7 @@ class TestRaster:
     @pytest.mark.parametrize(
         ("dtype", "nodata"),
         [
-            (np.int64, -999.0),
+            (np.int32, -999.0),
             (np.uint32, UINT32_MAX),
             (np.float64, 123.456),
             (np.complex64, 0.0),
