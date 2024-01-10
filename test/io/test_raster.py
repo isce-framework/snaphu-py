@@ -14,6 +14,9 @@ from numpy.typing import DTypeLike
 
 import snaphu
 
+# Maximum value representable by 32-bit unsigned integer type.
+UINT32_MAX = np.iinfo(np.uint32).max
+
 
 def has_rasterio() -> bool:
     """Check if `rasterio` can be imported."""
@@ -27,6 +30,7 @@ def make_geotiff_raster(
     dtype: DTypeLike = np.int32,
     epsg: int = 4326,
     extents: tuple[float, float, float, float] = (0.0, 0.0, 1.0, 1.0),
+    nodata: float | None = None,
 ) -> Generator[snaphu.io.Raster, None, None]:
     """
     Make a dummy GeoTiff raster for testing.
@@ -47,6 +51,8 @@ def make_geotiff_raster(
         The geospatial extents of the raster image, in coordinates defined by the CRS
         represented by the `epsg` code, in the following order: West, South, East,
         North.
+    nodata : float or None, optional
+        Defines the pixel value to be interpreted as not valid data.
 
     Yields
     ------
@@ -65,6 +71,7 @@ def make_geotiff_raster(
         dtype=dtype,
         crs=crs,
         transform=transform,
+        nodata=nodata,
         driver="GTiff",
     ) as raster:
         yield raster
@@ -178,6 +185,23 @@ class TestRaster:
         height, width = 1024, 512
         transform = rasterio.transform.from_bounds(0.0, 0.0, 1.0, 1.0, width, height)
         assert geotiff_raster.transform == transform
+
+    @pytest.mark.parametrize(
+        ("dtype", "nodata"),
+        [
+            (np.int32, -999.0),
+            (np.uint32, UINT32_MAX),
+            (np.float64, 123.456),
+            (np.complex64, 0.0),
+            (np.float32, None),
+        ],
+    )
+    def test_nodata(self, dtype: DTypeLike, nodata: float | None):
+        with (
+            tempfile.NamedTemporaryFile(suffix=".tif") as file_,
+            make_geotiff_raster(file_.name, dtype=dtype, nodata=nodata) as raster,
+        ):
+            assert raster.nodata == nodata
 
     def test_open_closed(self):
         with make_temp_geotiff_raster() as raster:
