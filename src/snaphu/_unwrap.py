@@ -299,8 +299,10 @@ def regrow_conncomp_from_unw(
 
     # Write config parameters to file. The config file should have a descriptive name to
     # disambiguate it from the config file used for unwrapping.
-    config_file = Path(scratchdir) / "snaphu-regrow-conncomps.conf"
-    config_file.write_text(config)
+    _, config_file = mkstemp(
+        dir=scratchdir, prefix="snaphu-regrow-conncomps.config.", suffix=".txt"
+    )
+    Path(config_file).write_text(config)
 
     # Run SNAPHU in REGROWCONNCOMPS mode to generate new connected component labels.
     run_snaphu(config_file)
@@ -547,8 +549,8 @@ def unwrap(  # type: ignore[no-untyped-def]
             config += f"BYTEMASKFILE {tmp_mask}\n"
 
         # Write config parameters to file.
-        config_file = dir_ / "snaphu.conf"
-        config_file.write_text(config)
+        _, config_file = mkstemp(dir=dir_, prefix="snaphu.config.", suffix=".txt")
+        Path(config_file).write_text(config)
 
         # Run SNAPHU with the specified parameters.
         run_snaphu(config_file)
