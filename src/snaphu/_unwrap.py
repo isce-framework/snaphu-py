@@ -1,9 +1,7 @@
 from __future__ import annotations
 
-import io
 import os
 import textwrap
-from dataclasses import dataclass
 from pathlib import Path
 from tempfile import mkstemp
 from typing import cast, overload
@@ -17,169 +15,6 @@ from .io import InputDataset, OutputDataset
 __all__ = [
     "unwrap",
 ]
-
-
-@dataclass(frozen=True)
-class TilingParams:
-    """
-    SNAPHU configuration parameters affecting scene tiling and parallel processing.
-
-    Parameters
-    ----------
-    ntilerow, ntilecol : int, optional
-        Number of tiles along the row/column directions. If `ntilerow` and `ntilecol`
-        are both 1 (the default), the interferogram will be unwrapped as a single tile.
-    rowovrlp, colovrlp : int, optional
-        Overlap, in number of rows/columns, between neighboring tiles. Defaults to 0.
-    nproc : int, optional
-        Maximum number of child processes to spawn for parallel tile unwrapping.
-        Defaults to 1.
-    """
-
-    ntilerow: int = 1
-    ntilecol: int = 1
-    rowovrlp: int = 0
-    colovrlp: int = 0
-    nproc: int = 1
-
-    def to_string(self) -> str:
-        """
-        Write SNAPHU tiling parameters to a string.
-
-        Creates a multi-line string in SNAPHU configuration file format.
-
-        Returns
-        -------
-        str
-            The output string.
-        """
-        return textwrap.dedent(f"""\
-            NTILEROW {self.ntilerow}
-            NTILECOL {self.ntilecol}
-            ROWOVRLP {self.rowovrlp}
-            COLOVRLP {self.colovrlp}
-            NPROC {self.nproc}
-        """)
-
-
-@dataclass(frozen=True)
-class SnaphuConfig:
-    """
-    SNAPHU configuration parameters.
-
-    Parameters
-    ----------
-    infile : path-like
-        The input interferogram file path.
-    corrfile : path-like
-        The input coherence file path.
-    outfile : path-like
-        The output unwrapped phase file path.
-    conncompfile : path-like
-        The output connected component labels file path.
-    linelength : int
-        The line length, in samples, of the input interferogram data array.
-    ncorrlooks : float
-        The equivalent number of independent looks used to form the coherence data.
-    statcostmode : str
-        The statistical cost mode.
-    initmethod : str
-        The algorithm used for initializing the network solver routine.
-    bytemaskfile : path-like or None, optional
-        An optional file path of a byte mask file. If None, no mask is applied. Defaults
-        to None.
-    tiling_params : TilingParams or None, optional
-        Optional additional configuration parameters affecting scene tiling and parallel
-        processing. Defaults to None.
-    """
-
-    infile: str | os.PathLike[str]
-    corrfile: str | os.PathLike[str]
-    outfile: str | os.PathLike[str]
-    conncompfile: str | os.PathLike[str]
-    linelength: int
-    ncorrlooks: float
-    statcostmode: str
-    initmethod: str
-    bytemaskfile: str | os.PathLike[str] | None = None
-    tiling_params: TilingParams | None = None
-
-    def to_string(self) -> str:
-        """
-        Write SNAPHU configuration parameters to a string.
-
-        Creates a multi-line string in SNAPHU configuration file format.
-
-        Returns
-        -------
-        str
-            The output string.
-        """
-        config = textwrap.dedent(f"""\
-            INFILE {os.fspath(self.infile)}
-            INFILEFORMAT COMPLEX_DATA
-            CORRFILE {os.fspath(self.corrfile)}
-            CORRFILEFORMAT FLOAT_DATA
-            OUTFILE {os.fspath(self.outfile)}
-            OUTFILEFORMAT FLOAT_DATA
-            CONNCOMPFILE {os.fspath(self.conncompfile)}
-            CONNCOMPOUTTYPE UINT
-            LINELENGTH {self.linelength}
-            NCORRLOOKS {self.ncorrlooks}
-            STATCOSTMODE {self.statcostmode.upper()}
-            INITMETHOD {self.initmethod.upper()}
-        """)
-
-        if self.bytemaskfile is not None:
-            config += f"BYTEMASKFILE {os.fspath(self.bytemaskfile)}\n"
-        if self.tiling_params is not None:
-            config += self.tiling_params.to_string()
-
-        return config
-
-    def _to_file_textio(self, file_: io.TextIOBase, /) -> None:
-        # Write config params to file.
-        s = self.to_string()
-        count = file_.write(s)
-
-        # Check that the full text was successfully written to the file.
-        if count != len(s):
-            errmsg = "failed to write config params to file"
-            raise RuntimeError(errmsg)
-
-    def _to_file_pathlike(self, file_: str | os.PathLike[str], /) -> None:
-        # Create the file's parent directory(ies) if they didn't already exist.
-        p = Path(file_)
-        p.parent.mkdir(parents=True, exist_ok=True)
-
-        # Write config params to file.
-        s = self.to_string()
-        p.write_text(s)
-
-    def to_file(self, file_: str | os.PathLike[str] | io.TextIOBase, /) -> None:
-        """
-        Write SNAPHU configuration parameters to a file.
-
-        The resulting file is suitable for passing to the SNAPHU executable as a
-        configuration file.
-
-        Parameters
-        ----------
-        file_ : path-like or file-like
-            The output file. May be an open text file or a file path. If the file
-            and any of its parent directories do not exist, they will be created. If the
-            path to an existing file is specified, the file will be overwritten.
-        """
-        if isinstance(file_, io.TextIOBase):
-            self._to_file_textio(file_)
-        elif isinstance(file_, (str, os.PathLike)):
-            self._to_file_pathlike(file_)
-        else:
-            errmsg = (
-                "to_file argument must be a path-like or file-like object, instead got"
-                f" type={type(file_)}"
-            )
-            raise TypeError(errmsg)
 
 
 def check_shapes(
@@ -401,6 +236,76 @@ def copy_blockwise(
             dst[block] = src[block]
 
 
+def regrow_conncomp_from_unw(
+    unw_file: str | os.PathLike[str],
+    corr_file: str | os.PathLike[str],
+    conncomp_file: str | os.PathLike[str],
+    line_length: int,
+    nlooks: float,
+    cost: str,
+    mask_file: str | os.PathLike[str] | None = None,
+    scratchdir: str | os.PathLike[str] | None = None,
+) -> None:
+    """
+    Run SNAPHU to regrow connected components from an unwrapped input.
+
+    This is particularly useful if SNAPHU was initially run in tiled mode, resulting in
+    a set of connected components that are disjoint across tile boundaries. The
+    connected components will be recomputed as though by a single tile, so that
+    components are no longer delimited by the extents of each tile.
+
+    This function does not compute a new unwrapped solution.
+
+    Parameters
+    ----------
+    unw_file : path-like
+        The input unwrapped phase file path.
+    corr_file : path-like
+        The input coherence file path.
+    conncomp_file : path-like
+        The output connected component labels file path.
+    line_length : int
+        The line length, in samples, of the input & output arrays.
+    nlooks : float
+        The equivalent number of independent looks used to form the sample coherence.
+    cost : str
+        Statistical cost mode.
+    mask_file : path-like or None, optional
+        An optional file path of a byte mask file. If None, no mask is applied. Defaults
+        to None.
+    scratchdir : path-like or None, optional
+        The scratch directory where the config file will be written. If None, a
+        default temporary directory is chosen as though by ``tempfile.gettempdir()``.
+        Defaults to None.
+    """
+    # In REGROWCONNCOMPS mode, SNAPHU recomputes the cost arrays (but does not
+    # re-unwrap), so we should pass in all parameters necessary to compute costs, but
+    # don't need to pass an INITMETHOD, for example.
+    config = textwrap.dedent(f"""\
+        REGROWCONNCOMPS TRUE
+        INFILE {os.fspath(unw_file)}
+        INFILEFORMAT FLOAT_DATA
+        UNWRAPPEDINFILEFORMAT FLOAT_DATA
+        CORRFILE {os.fspath(corr_file)}
+        CORRFILEFORMAT FLOAT_DATA
+        CONNCOMPFILE {os.fspath(conncomp_file)}
+        CONNCOMPOUTTYPE UINT
+        LINELENGTH {line_length}
+        NCORRLOOKS {nlooks}
+        STATCOSTMODE {cost.upper()}
+    """)
+    if mask_file is not None:
+        config += f"BYTEMASKFILE {os.fspath(mask_file)}\n"
+
+    # Write config parameters to file. The config file should have a descriptive name to
+    # disambiguate it from the config file used for unwrapping.
+    config_file = Path(scratchdir) / "snaphu-regrow-conncomps.conf"
+    config_file.write_text(config)
+
+    # Run SNAPHU in REGROWCONNCOMPS mode to generate new connected component labels.
+    run_snaphu(config_file)
+
+
 @overload
 def unwrap(
     igram: InputDataset,
@@ -413,6 +318,7 @@ def unwrap(
     ntiles: tuple[int, int] = (1, 1),
     tile_overlap: int | tuple[int, int] = 0,
     nproc: int = 1,
+    regrow_conncomps: bool = True,
     scratchdir: str | os.PathLike[str] | None = None,
     delete_scratch: bool = True,
     unw: OutputDataset,
@@ -433,6 +339,7 @@ def unwrap(
     ntiles: tuple[int, int] = (1, 1),
     tile_overlap: int | tuple[int, int] = 0,
     nproc: int = 1,
+    regrow_conncomps: bool = True,
     scratchdir: str | os.PathLike[str] | None = None,
     delete_scratch: bool = True,
 ) -> tuple[np.ndarray, np.ndarray]: ...  # pragma: no cover
@@ -449,6 +356,7 @@ def unwrap(  # type: ignore[no-untyped-def]
     ntiles=(1, 1),
     tile_overlap=0,
     nproc=1,
+    regrow_conncomps=True,
     scratchdir=None,
     delete_scratch=True,
     unw=None,
@@ -506,6 +414,10 @@ def unwrap(  # type: ignore[no-untyped-def]
     nproc : int, optional
         Maximum number of child processes to spawn for parallel tile unwrapping. If
         `nproc` is less than 1, use all available processors. Defaults to 1.
+    regrow_conncomps : bool, optional
+        If True, the connected component labels will be re-computed using a single tile
+        after first unwrapping with multiple tiles. This option is disregarded when
+        `ntiles` is (1, 1). Defaults to True.
     scratchdir : path-like or None, optional
         Scratch directory where intermediate processing artifacts are written.
         If the specified directory does not exist, it will be created. If None,
@@ -612,33 +524,51 @@ def unwrap(  # type: ignore[no-untyped-def]
         _, tmp_unw = mkstemp(dir=dir_, prefix="snaphu.unw.", suffix=".f4")
         _, tmp_conncomp = mkstemp(dir=dir_, prefix="snaphu.conncomp.", suffix=".u4")
 
-        tiling_params = TilingParams(
-            ntilerow=ntiles[0],
-            ntilecol=ntiles[1],
-            rowovrlp=tile_overlap[0],
-            colovrlp=tile_overlap[1],
-            nproc=nproc,
-        )
-
-        config = SnaphuConfig(
-            infile=tmp_igram,
-            corrfile=tmp_corr,
-            outfile=tmp_unw,
-            conncompfile=tmp_conncomp,
-            linelength=igram.shape[1],
-            ncorrlooks=nlooks,
-            statcostmode=cost,
-            initmethod=init,
-            bytemaskfile=tmp_mask,
-            tiling_params=tiling_params,
-        )
+        config = textwrap.dedent(f"""\
+            INFILE {tmp_igram}
+            INFILEFORMAT COMPLEX_DATA
+            CORRFILE {tmp_corr}
+            CORRFILEFORMAT FLOAT_DATA
+            OUTFILE {tmp_unw}
+            OUTFILEFORMAT FLOAT_DATA
+            CONNCOMPFILE {tmp_conncomp}
+            CONNCOMPOUTTYPE UINT
+            LINELENGTH {igram.shape[1]}
+            NCORRLOOKS {nlooks}
+            STATCOSTMODE {cost.upper()}
+            INITMETHOD {init.upper()}
+            NTILEROW {ntiles[0]}
+            NTILECOL {ntiles[1]}
+            ROWOVRLP {tile_overlap[0]}
+            COLOVRLP {tile_overlap[1]}
+            NPROC {nproc}
+        """)
+        if mask is not None:
+            config += f"BYTEMASKFILE {tmp_mask}\n"
 
         # Write config parameters to file.
         config_file = dir_ / "snaphu.conf"
-        config.to_file(config_file)
+        config_file.write_text(config)
 
         # Run SNAPHU with the specified parameters.
         run_snaphu(config_file)
+
+        # Optionally re-run SNAPHU to regrow connected components from the unwrapped
+        # phase as though in single-tile mode, overwriting the original connected
+        # components file. This step should have no effect if SNAPHU was previously run
+        # in single-tile mode, so skip it in that case.
+        single_tile = ntiles == (1, 1)
+        if (not single_tile) and regrow_conncomps:
+            regrow_conncomp_from_unw(
+                unw_file=tmp_unw,
+                corr_file=tmp_corr,
+                conncomp_file=tmp_conncomp,
+                line_length=igram.shape[1],
+                nlooks=nlooks,
+                cost=cost,
+                scratchdir=dir_,
+                mask_file=tmp_mask,
+            )
 
         # Get the output unwrapped phase data.
         tmp_unw_mmap = np.memmap(tmp_unw, dtype=np.float32, shape=unw.shape)
