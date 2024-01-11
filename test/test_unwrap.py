@@ -107,6 +107,39 @@ class TestUnwrap:
         offset = 2.0 * np.pi * np.round(mean_diff / (2.0 * np.pi))
         np.testing.assert_allclose(unw, phase + offset, atol=1e-2)
 
+    def test_regrow_conncomps(self):
+        # Simulate interferogram containing a diagonal phase ramp with multiple fringes.
+        y, x = np.ogrid[-3:3:512j, -3:3:512j]
+        phase = np.pi * (x + y)
+        igram = np.exp(1j * phase)
+
+        # Create a binary mask containing a single U-shaped region of valid data that
+        # spans the 4 quadrants of the interferogram.
+        mask = np.zeros(igram.shape, dtype=np.bool_)
+        mask = np.zeros(igram.shape, dtype=np.bool_)
+        mask[:, :128] = True
+        mask[-128:, :] = True
+        mask[:, -128:] = True
+
+        # Sample coherence for an interferogram with no noise.
+        corr = np.ones(igram.shape, dtype=np.float32)
+
+        # Unwrap using a 2x2 grid of tiles. Without regrowing connected components, this
+        # would result in 4 distinct connected component labels (one per tile).
+        _, conncomp = snaphu.unwrap(
+            igram,
+            corr,
+            nlooks=1.0,
+            mask=mask,
+            ntiles=(2, 2),
+            tile_overlap=(64, 64),
+            regrow_conncomps=True,
+        )
+
+        # There should be a single connected component (labeled 1) that contains all of
+        # the valid pixels and none of the invalid pixels.
+        np.testing.assert_array_equal(conncomp, mask.astype(np.int32))
+
     def test_shape_mismatch(self):
         igram = np.empty(shape=(128, 128), dtype=np.complex64)
         corr = np.empty(shape=(128, 129), dtype=np.float32)
