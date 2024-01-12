@@ -3,7 +3,7 @@ requires = ["scikit-build-core"]
 build-backend = "scikit_build_core.build"
 
 [project]
-name = "snaphu-py"
+name = "snaphu"
 authors = [
   { name = "Geoffrey Gunter", email = "geoffrey.m.gunter@jpl.nasa.gov" },
 ]
