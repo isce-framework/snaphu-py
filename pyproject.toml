@@ -39,11 +39,9 @@ raster = ["rasterio>=1.2"]
 test = ["pytest>=6", "pytest-cov>=3"]
 
 [project.urls]
-"Bug Tracker" = "https://github.com/isce-framework/snaphu-py/issues"
-"Discussions" = "https://github.com/isce-framework/snaphu-py/discussions"
-"Homepage" = "https://github.com/isce-framework/snaphu-py"
-"Releases" = "https://github.com/isce-framework/snaphu-py/releases"
-"Source Code" = "https://github.com/isce-framework/snaphu-py"
+Discussions = "https://github.com/isce-framework/snaphu-py/discussions"
+Homepage = "https://github.com/isce-framework/snaphu-py"
+Issues = "https://github.com/isce-framework/snaphu-py/issues"
 
 [tool.black]
 preview = true
