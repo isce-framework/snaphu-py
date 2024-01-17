@@ -1,0 +1,29 @@
+name: CD
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+jobs:
+  create-release:
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+    env:
+      name_and_tag: snaphu-py-${{ github.ref_name }}
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0, submodules: true }
+      - run: |
+          pipx run git-archive-all ${{ env.name_and_tag }}.zip
+          unzip -l ${{ env.name_and_tag }}.zip
+      - run: |
+          pipx run git-archive-all ${{ env.name_and_tag }}.tar.gz
+          tar -ztvf ${{ env.name_and_tag }}.tar.gz
+      - uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            ${{ env.name_and_tag }}.zip
+            ${{ env.name_and_tag }}.tar.gz
+          generate_release_notes: true
