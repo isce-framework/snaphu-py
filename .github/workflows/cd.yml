@@ -10,18 +10,20 @@ jobs:
     permissions:
       contents: write
     runs-on: ubuntu-latest
+    env:
+      name_and_tag: snaphu-py-${{ github.ref_name }}
     steps:
       - uses: actions/checkout@v4
         with: { fetch-depth: 0, submodules: true }
       - run: |
-          pipx run git-archive-all snaphu-py-${{ github.ref_name }}.zip
-          unzip -l snaphu-py-${{ github.ref_name }}.zip
+          pipx run git-archive-all ${{ env.name_and_tag }}.zip
+          unzip -l ${{ env.name_and_tag }}.zip
       - run: |
-          pipx run git-archive-all snaphu-py-${{ github.ref_name }}.tar.gz
-          tar -ztvf snaphu-py-${{ github.ref_name }}.tar.gz
+          pipx run git-archive-all ${{ env.name_and_tag }}.tar.gz
+          tar -ztvf ${{ env.name_and_tag }}.tar.gz
       - uses: softprops/action-gh-release@v1
         with:
           files: |
-            snaphu-py-${{ github.ref_name }}.zip
-            snaphu-py-${{ github.ref_name }}.tar.gz
+            ${{ env.name_and_tag }}.zip
+            ${{ env.name_and_tag }}.tar.gz
           generate_release_notes: true
