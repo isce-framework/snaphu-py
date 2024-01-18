@@ -2,7 +2,11 @@ name: CI
 
 on:
   pull_request:
-  push: { branches: [main] }
+  push:
+    branches:
+      - main
+    tags:
+      - v*.*.*
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -106,7 +110,7 @@ jobs:
 
   publish-to-testpypi:
     if: github.event_name == 'push'
-    name: Publish wheels and sdist to TestPyPI
+    name: Publish to TestPyPI
     needs: [build-wheels, build-sdist]
     runs-on: ubuntu-latest
     environment:
@@ -123,3 +127,55 @@ jobs:
       - uses: pypa/gh-action-pypi-publish@release/v1
         with:
           repository-url: https://test.pypi.org/legacy/
+
+  create-release:
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
+    name: Create a release
+    needs:
+      - build-and-test
+      - min-reqs
+      - no-optional-deps
+      - build-wheels
+      - build-sdist
+      - publish-to-testpypi
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+    env:
+      name_and_tag: snaphu-py-${{ github.ref_name }}
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0, submodules: true }
+      - run: |
+          pipx run git-archive-all ${{ env.name_and_tag }}.zip
+          unzip -l ${{ env.name_and_tag }}.zip
+      - run: |
+          pipx run git-archive-all ${{ env.name_and_tag }}.tar.gz
+          tar -ztvf ${{ env.name_and_tag }}.tar.gz
+      - uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            ${{ env.name_and_tag }}.zip
+            ${{ env.name_and_tag }}.tar.gz
+          generate_release_notes: true
+
+  publish-to-pypi:
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
+    name: Publish to PyPI
+    needs:
+      - build-wheels
+      - build-sdist
+      - create-release
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/p/snaphu
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: ${{ env.artifact_prefix }}-*
+          path: dist/
+          merge-multiple: true
+      - uses: pypa/gh-action-pypi-publish@release/v1
