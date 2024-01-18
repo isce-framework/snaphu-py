@@ -58,6 +58,7 @@ jobs:
       - run: pytest -vv
 
   build-wheels:
+    if: github.event_name == 'push'
     strategy:
       matrix:
         os:
@@ -104,6 +105,7 @@ jobs:
           path: dist/*.tar.gz
 
   publish-to-testpypi:
+    if: github.event_name == 'push'
     name: Publish wheels and sdist to TestPyPI
     needs: [build-wheels, build-sdist]
     runs-on: ubuntu-latest
