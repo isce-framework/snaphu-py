@@ -123,3 +123,4 @@ wheel.license-files = ["LICENSE-*", "ext/snaphu/README"]
 
 [tool.setuptools_scm]
 write_to = "src/snaphu/_version.py"
+local_scheme = "no-local-version"
