@@ -2,11 +2,20 @@
 
 [![CI](https://github.com/isce-framework/snaphu-py/actions/workflows/ci.yml/badge.svg)](https://github.com/isce-framework/snaphu-py/actions/workflows/ci.yml)
 [![codecov](https://codecov.io/gh/isce-framework/snaphu-py/graph/badge.svg?token=IV41TI56EA)](https://codecov.io/gh/isce-framework/snaphu-py)
+[![PyPI - Version](https://img.shields.io/pypi/v/snaphu.svg)](https://pypi.org/project/snaphu)
 
 A simple Python wrapper for the Statistical-Cost, Network-Flow Algorithm for Phase
 Unwrapping (SNAPHU)
 
 ## Installation
+
+### Install with pip
+
+You can install snaphu-py with pip using
+
+```shell
+$ pip install snaphu
+```
 
 ### Install from source
 
