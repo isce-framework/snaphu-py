@@ -75,8 +75,6 @@ jobs:
         include:
           - os: { label: macOS, runner: macos-latest }
             arch: arm64
-          - os: { label: Linux, runner: ubuntu-latest }
-            arch: i686
       fail-fast: false
     name: Build, lint, & test wheels (${{ matrix.os.label}} ${{ matrix.arch }})
     runs-on: ${{ matrix.os.runner }}
