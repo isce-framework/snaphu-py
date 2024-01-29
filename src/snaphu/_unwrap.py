@@ -281,7 +281,8 @@ def regrow_conncomp_from_unw(
     # In REGROWCONNCOMPS mode, SNAPHU recomputes the cost arrays (but does not
     # re-unwrap), so we should pass in all parameters necessary to compute costs, but
     # don't need to pass an INITMETHOD, for example.
-    config = textwrap.dedent(f"""\
+    config = textwrap.dedent(
+        f"""\
         REGROWCONNCOMPS TRUE
         INFILE {os.fspath(unw_file)}
         INFILEFORMAT FLOAT_DATA
@@ -293,7 +294,8 @@ def regrow_conncomp_from_unw(
         LINELENGTH {line_length}
         NCORRLOOKS {nlooks}
         STATCOSTMODE {cost.upper()}
-    """)
+        """
+    )
     if mask_file is not None:
         config += f"BYTEMASKFILE {os.fspath(mask_file)}\n"
 
@@ -526,7 +528,8 @@ def unwrap(  # type: ignore[no-untyped-def]
         _, tmp_unw = mkstemp(dir=dir_, prefix="snaphu.unw.", suffix=".f4")
         _, tmp_conncomp = mkstemp(dir=dir_, prefix="snaphu.conncomp.", suffix=".u4")
 
-        config = textwrap.dedent(f"""\
+        config = textwrap.dedent(
+            f"""\
             INFILE {tmp_igram}
             INFILEFORMAT COMPLEX_DATA
             CORRFILE {tmp_corr}
@@ -544,7 +547,8 @@ def unwrap(  # type: ignore[no-untyped-def]
             ROWOVRLP {tile_overlap[0]}
             COLOVRLP {tile_overlap[1]}
             NPROC {nproc}
-        """)
+            """
+        )
         if mask is not None:
             config += f"BYTEMASKFILE {tmp_mask}\n"
 
