@@ -322,6 +322,8 @@ def unwrap(
     ntiles: tuple[int, int] = (1, 1),
     tile_overlap: int | tuple[int, int] = 0,
     nproc: int = 1,
+    tile_cost_thresh: int = 500,
+    min_region_size: int = 100,
     regrow_conncomps: bool = True,
     scratchdir: str | os.PathLike[str] | None = None,
     delete_scratch: bool = True,
@@ -343,6 +345,8 @@ def unwrap(
     ntiles: tuple[int, int] = (1, 1),
     tile_overlap: int | tuple[int, int] = 0,
     nproc: int = 1,
+    tile_cost_thresh: int = 500,
+    min_region_size: int = 100,
     regrow_conncomps: bool = True,
     scratchdir: str | os.PathLike[str] | None = None,
     delete_scratch: bool = True,
@@ -360,6 +364,8 @@ def unwrap(  # type: ignore[no-untyped-def]
     ntiles=(1, 1),
     tile_overlap=0,
     nproc=1,
+    tile_cost_thresh=500,
+    min_region_size=100,
     regrow_conncomps=True,
     scratchdir=None,
     delete_scratch=True,
@@ -418,6 +424,13 @@ def unwrap(  # type: ignore[no-untyped-def]
     nproc : int, optional
         Maximum number of child processes to spawn for parallel tile unwrapping. If
         `nproc` is less than 1, use all available processors. Defaults to 1.
+    tile_cost_thresh : int, optional
+        Cost threshold to use for determining boundaries of reliable regions
+        (dimensionless; scaled according to other cost constants). Larger cost threshold
+        implies smaller regions -- safer, but more expensive computationally. Defaults
+        to 500.
+    min_region_size : int, optional
+        Minimum size, in pixels, of a reliable region in tile mode. Defaults to 100.
     regrow_conncomps : bool, optional
         If True, the connected component labels will be re-computed using a single tile
         after first unwrapping with multiple tiles. This option is disregarded when
@@ -547,6 +560,8 @@ def unwrap(  # type: ignore[no-untyped-def]
             ROWOVRLP {tile_overlap[0]}
             COLOVRLP {tile_overlap[1]}
             NPROC {nproc}
+            TILECOSTTHRESH {tile_cost_thresh}
+            MINREGIONSIZE {min_region_size}
             """
         )
         if mask is not None:
