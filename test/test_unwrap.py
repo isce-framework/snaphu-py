@@ -223,3 +223,18 @@ class TestUnwrap:
         )
         with pytest.raises(ValueError, match=pattern):
             snaphu.unwrap(igram, corr, nlooks=100.0, tile_overlap=(0, -1))
+
+    def test_bad_min_region_size(self):
+        shape = (256, 256)
+        igram = np.empty(shape, dtype=np.complex64)
+        corr = np.empty(shape, dtype=np.float32)
+
+        pattern = r"^minimum region size too large for given tile parameters$"
+        with pytest.raises(RuntimeError, match=pattern):
+            snaphu.unwrap(
+                igram,
+                corr,
+                nlooks=100.0,
+                ntiles=(2, 2),
+                min_region_size=1_000_000,
+            )
