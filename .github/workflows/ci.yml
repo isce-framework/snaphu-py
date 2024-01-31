@@ -19,14 +19,16 @@ jobs:
   build-and-test:
     strategy:
       matrix:
-        os:
-          - label: Linux
+        include:
+          - label: Linux x86_64
             runner: ubuntu-latest
-          - label: macOS
+          - label: macOS x86_64
             runner: macos-latest
+          - label: macOS arm64
+            runner: macos-14
       fail-fast: false
-    name: Build & test (${{ matrix.os.label }})
-    runs-on: ${{ matrix.os.runner }}
+    name: Build & test (${{ matrix.label }})
+    runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v4
         with: { fetch-depth: 0, submodules: true }
@@ -65,19 +67,19 @@ jobs:
     if: github.event_name == 'push'
     strategy:
       matrix:
-        os:
-          - label: Linux
-            runner: ubuntu-latest
-          - label: macOS
-            runner: macos-latest
-        arch:
-          - x86_64
         include:
-          - os: { label: macOS, runner: macos-latest }
+          - label: Linux x86_64
+            runner: ubuntu-latest
+            arch: x86_64
+          - label: macOS x86_64
+            runner: macos-latest
+            arch: x86_64
+          - label: macOS arm64
+            runner: macos-14
             arch: arm64
       fail-fast: false
-    name: Build, lint, & test wheels (${{ matrix.os.label}} ${{ matrix.arch }})
-    runs-on: ${{ matrix.os.runner }}
+    name: Build, lint, & test wheels (${{ matrix.label }})
+    runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v4
         with: { fetch-depth: 0, submodules: true }
@@ -86,11 +88,14 @@ jobs:
           CIBW_ARCHS: ${{ matrix.arch }}
           CIBW_TEST_REQUIRES: pytest>=6 pytest-cov>=3
           CIBW_TEST_COMMAND: pytest {package}/test
-          CIBW_TEST_SKIP: "*_arm64"
-      - run: pipx run check-wheel-contents ./wheelhouse/*.whl
+      - uses: actions/setup-python@v5
+        with: { python-version: ">=3.7" }
+      - run: |
+          pip install check-wheel-contents
+          check-wheel-contents ./wheelhouse/*.whl
       - uses: actions/upload-artifact@v4
         with:
-          name: ${{ env.artifact_prefix }}-wheels-${{ matrix.os.runner }}-${{ matrix.arch }}
+          name: ${{ env.artifact_prefix }}-wheels-${{ matrix.runner }}-${{ matrix.arch }}
           path: ./wheelhouse/*.whl
 
   build-sdist:
