@@ -8,8 +8,8 @@ coverage:
         informational: true
 
 ignore:
-  - docs
-  - .github
-  - .pre-commit-config.yaml
-  - pyproject.toml
-  - README.md
+  - "docs/**/*"
+  - ".github/**/*"
+  - ".pre-commit-config.yaml"
+  - "pyproject.toml"
+  - "README.md"
