@@ -62,7 +62,7 @@ jobs:
       - run: pytest -vv
 
   build-wheels:
-    if: github.event_name == 'push'
+    # if: github.event_name == 'push'
     strategy:
       matrix:
         os:
