@@ -14,7 +14,7 @@ Unwrapping (SNAPHU)
 
 You can install snaphu-py with conda using
 
-```shell
+```
 $ conda install -c conda-forge snaphu
 ```
 
@@ -22,7 +22,7 @@ $ conda install -c conda-forge snaphu
 
 You can install snaphu-py with pip using
 
-```shell
+```
 $ pip install snaphu
 ```
 
@@ -35,8 +35,17 @@ To install snaphu-py from source, you will need:
 
 The latest source code can be installed using
 
-```shell
+```
 $ pip install git+https://github.com/isce-framework/snaphu-py.git
+```
+
+Alternatively, clone the repository (be sure to use the `--recursive` flag to fetch the
+Git submodules) and install the local copy using
+
+```
+$ git clone --recursive https://github.com/isce-framework/snaphu-py.git
+$ cd snaphu-py
+$ pip install .
 ```
 
 ## Usage
