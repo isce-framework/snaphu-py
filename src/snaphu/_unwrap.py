@@ -547,11 +547,13 @@ def unwrap(  # type: ignore[no-untyped-def]
         _, tmp_igram = mkstemp(dir=dir_, prefix="snaphu.igram.", suffix=".c8")
         tmp_igram_mmap = np.memmap(tmp_igram, dtype=np.complex64, shape=igram.shape)
         copy_blockwise(igram, tmp_igram_mmap, transform=nan_to_zero)
+        tmp_igram_mmap.flush()
 
         # Copy the input coherence data to a raw binary file in the scratch directory.
         _, tmp_corr = mkstemp(dir=dir_, prefix="snaphu.corr.", suffix=".f4")
         tmp_corr_mmap = np.memmap(tmp_corr, dtype=np.float32, shape=corr.shape)
         copy_blockwise(corr, tmp_corr_mmap, transform=nan_to_zero)
+        tmp_corr_mmap.flush()
 
         # If a mask was provided, copy the mask data to a raw binary file in the scratch
         # directory.
@@ -561,6 +563,7 @@ def unwrap(  # type: ignore[no-untyped-def]
             _, tmp_mask = mkstemp(dir=dir_, prefix="snaphu.mask.", suffix=".u1")
             tmp_mask_mmap = np.memmap(tmp_mask, dtype=np.bool_, shape=mask.shape)
             copy_blockwise(mask, tmp_mask_mmap)
+            tmp_mask_mmap.flush()
 
         # Create files in the scratch directory for SNAPHU outputs.
         _, tmp_unw = mkstemp(dir=dir_, prefix="snaphu.unw.", suffix=".f4")
@@ -601,19 +604,20 @@ def unwrap(  # type: ignore[no-untyped-def]
 
         # Optionally regrow connected component labels from the unwrapped phase if
         # SNAPHU was run in tiled mode. This step should have no effect if SNAPHU was
-        # previously run in single-tile mode, so skip it in that case.
+        # previously run in single-tile mode, so always skip it in that case.
         single_tile = ntiles == (1, 1)
         if (not single_tile) and regrow_conncomps:
-            # The connected component regrowing step takes the unwrapped phase as input.
-            # Unlike the original interferogram, it does not have magnitude information,
-            # which could cause some issues. For example, if the interferogram contained
-            # zero-magnitude pixels, then they should be masked out. So compute the
-            # interferogram magnitude and pass it as a separate input file.
+            # The connected component regrowing step takes as input the unwrapped phase,
+            # which is missing magnitude information. The magnitude may be necessary,
+            # for example, to detect zero-magnitude pixels which should be masked out
+            # (i.e. connected component label set to 0). So compute the interferogram
+            # magnitude and pass it as a separate input file.
             _, tmp_mag = mkstemp(dir=dir_, prefix="snaphu.mag.", suffix=".f4")
             tmp_mag_mmap = np.memmap(tmp_mag, dtype=np.float32, shape=igram.shape)
             copy_blockwise(tmp_igram_mmap, tmp_mag_mmap, transform=np.abs)
+            tmp_mag_mmap.flush()
 
-            # Re-run SNAPHU to re-compute connected components from the unwrapped phase
+            # Re-run SNAPHU to compute new connected components from the unwrapped phase
             # as though in single-tile mode, overwriting the original connected
             # components file.
             regrow_conncomp_from_unw(
