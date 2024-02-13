@@ -1,3 +1,5 @@
+from typing import Any
+
 import numpy as np
 import pytest
 
@@ -116,7 +118,6 @@ class TestUnwrap:
         # Create a binary mask containing a single U-shaped region of valid data that
         # spans the 4 quadrants of the interferogram.
         mask = np.zeros(igram.shape, dtype=np.bool_)
-        mask = np.zeros(igram.shape, dtype=np.bool_)
         mask[:, :128] = True
         mask[-128:, :] = True
         mask[:, -128:] = True
@@ -139,6 +140,38 @@ class TestUnwrap:
         # There should be a single connected component (labeled 1) that contains all of
         # the valid pixels and none of the invalid pixels.
         np.testing.assert_array_equal(conncomp, mask.astype(np.int32))
+
+    @pytest.mark.parametrize(
+        "kwargs",
+        [
+            {},
+            {"ntiles": (2, 2), "tile_overlap": (64, 64), "regrow_conncomps": False},
+            {"ntiles": (2, 2), "tile_overlap": (64, 64), "regrow_conncomps": True},
+        ],
+    )
+    def test_zero_magnitude(self, kwargs: dict[str, Any]):
+        # Simulate interferogram containing a diagonal phase ramp with multiple fringes.
+        y, x = np.ogrid[-3:3:512j, -3:3:512j]
+        phase = np.pi * (x + y)
+        igram = np.exp(1j * phase)
+
+        # Sample coherence for an interferogram with no noise.
+        corr = np.ones(igram.shape, dtype=np.float32)
+
+        # Create a binary mask of valid (nonzero-magnitude) pixels.
+        mask = np.zeros(igram.shape, dtype=np.bool_)
+        mask[128:-128] = True
+
+        # Set magnitude & coherence of invalid pixels to zero.
+        igram[~mask] = 0.0
+        corr[~mask] = 0.0
+
+        # Unwrap with the specified keyword arguments.
+        _, conncomp = snaphu.unwrap(igram, corr, nlooks=1.0, **kwargs)
+
+        # The zero-magnitude pixels should all have connected component label 0. Nonzero
+        # pixels should all have a nonzero connected component label.
+        np.testing.assert_array_equal(conncomp != 0, mask)
 
     def test_shape_mismatch(self):
         igram = np.empty(shape=(128, 128), dtype=np.complex64)

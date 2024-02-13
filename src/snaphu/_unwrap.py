@@ -2,11 +2,13 @@ from __future__ import annotations
 
 import os
 import textwrap
+from collections.abc import Callable
 from pathlib import Path
 from tempfile import mkstemp
 from typing import cast, overload
 
 import numpy as np
+from numpy.typing import ArrayLike
 
 from ._snaphu import run_snaphu
 from ._util import BlockIterator, scratch_directory
@@ -198,12 +200,29 @@ def normalize_and_validate_tiling_params(
     return ntiles, tile_overlap, nproc
 
 
+def nan_to_zero(arr: ArrayLike) -> np.ndarray:
+    """
+    Replace Not a Number (NaN) values with zeros.
+
+    Parameters
+    ----------
+    arr : array_like
+        The input array.
+
+    Returns
+    -------
+    np.ndarray
+        A copy of the input array with NaN values replaced with zeros.
+    """
+    return np.where(np.isnan(arr), 0, arr)
+
+
 def copy_blockwise(
     src: InputDataset,
     dst: OutputDataset,
     chunks: tuple[int, int] = (1024, 1024),
     *,
-    nan_to_zero: bool = False,
+    transform: Callable[[ArrayLike], np.ndarray] | None = None,
 ) -> None:
     """
     Copy the contents of `src` to `dst` block-by-block.
@@ -216,9 +235,11 @@ def copy_blockwise(
         Destination dataset.
     chunks : (int, int), optional
         Block dimensions. Defaults to (1024, 1024).
-    nan_to_zero : bool, optional
-        If True, replace Not a Number (NaN) values in the array with zeros in the
-        output. Defaults to False.
+    transform : callable or None, optional
+        An optional function object that is applied to each input block of data from
+        `src` to produce the corresponding output block in `dst`. The function should
+        take a single array_like parameter and return a NumPy array. If None, no
+        transform is applied. Defaults to None.
     """
     shape = src.shape
     if dst.shape != shape:
@@ -229,16 +250,16 @@ def copy_blockwise(
         raise ValueError(errmsg)
 
     for block in BlockIterator(shape, chunks):
-        if nan_to_zero:
-            nan_mask = np.isnan(src[block])
-            dst[block] = np.where(nan_mask, 0.0, src[block])
-        else:
+        if transform is None:
             dst[block] = src[block]
+        else:
+            dst[block] = transform(src[block])
 
 
 def regrow_conncomp_from_unw(
     unw_file: str | os.PathLike[str],
     corr_file: str | os.PathLike[str],
+    mag_file: str | os.PathLike[str],
     conncomp_file: str | os.PathLike[str],
     line_length: int,
     nlooks: float,
@@ -262,6 +283,8 @@ def regrow_conncomp_from_unw(
         The input unwrapped phase file path.
     corr_file : path-like
         The input coherence file path.
+    mag_file : path-like
+        The input interferogram magnitude file path.
     conncomp_file : path-like
         The output connected component labels file path.
     line_length : int
@@ -289,6 +312,8 @@ def regrow_conncomp_from_unw(
         UNWRAPPEDINFILEFORMAT FLOAT_DATA
         CORRFILE {os.fspath(corr_file)}
         CORRFILEFORMAT FLOAT_DATA
+        MAGFILE {os.fspath(mag_file)}
+        MAGFILEFORMAT FLOAT_DATA
         CONNCOMPFILE {os.fspath(conncomp_file)}
         CONNCOMPOUTTYPE UINT
         LINELENGTH {line_length}
@@ -521,12 +546,14 @@ def unwrap(  # type: ignore[no-untyped-def]
         # same scratch directory was used for multiple SNAPHU processes.)
         _, tmp_igram = mkstemp(dir=dir_, prefix="snaphu.igram.", suffix=".c8")
         tmp_igram_mmap = np.memmap(tmp_igram, dtype=np.complex64, shape=igram.shape)
-        copy_blockwise(igram, tmp_igram_mmap, nan_to_zero=True)
+        copy_blockwise(igram, tmp_igram_mmap, transform=nan_to_zero)
+        tmp_igram_mmap.flush()
 
         # Copy the input coherence data to a raw binary file in the scratch directory.
         _, tmp_corr = mkstemp(dir=dir_, prefix="snaphu.corr.", suffix=".f4")
         tmp_corr_mmap = np.memmap(tmp_corr, dtype=np.float32, shape=corr.shape)
-        copy_blockwise(corr, tmp_corr_mmap, nan_to_zero=True)
+        copy_blockwise(corr, tmp_corr_mmap, transform=nan_to_zero)
+        tmp_corr_mmap.flush()
 
         # If a mask was provided, copy the mask data to a raw binary file in the scratch
         # directory.
@@ -536,6 +563,7 @@ def unwrap(  # type: ignore[no-untyped-def]
             _, tmp_mask = mkstemp(dir=dir_, prefix="snaphu.mask.", suffix=".u1")
             tmp_mask_mmap = np.memmap(tmp_mask, dtype=np.bool_, shape=mask.shape)
             copy_blockwise(mask, tmp_mask_mmap)
+            tmp_mask_mmap.flush()
 
         # Create files in the scratch directory for SNAPHU outputs.
         _, tmp_unw = mkstemp(dir=dir_, prefix="snaphu.unw.", suffix=".f4")
@@ -574,15 +602,28 @@ def unwrap(  # type: ignore[no-untyped-def]
         # Run SNAPHU with the specified parameters.
         run_snaphu(config_file)
 
-        # Optionally re-run SNAPHU to regrow connected components from the unwrapped
-        # phase as though in single-tile mode, overwriting the original connected
-        # components file. This step should have no effect if SNAPHU was previously run
-        # in single-tile mode, so skip it in that case.
+        # Optionally regrow connected component labels from the unwrapped phase if
+        # SNAPHU was run in tiled mode. This step should have no effect if SNAPHU was
+        # previously run in single-tile mode, so always skip it in that case.
         single_tile = ntiles == (1, 1)
         if (not single_tile) and regrow_conncomps:
+            # The connected component regrowing step takes as input the unwrapped phase,
+            # which is missing magnitude information. The magnitude may be necessary,
+            # for example, to detect zero-magnitude pixels which should be masked out
+            # (i.e. connected component label set to 0). So compute the interferogram
+            # magnitude and pass it as a separate input file.
+            _, tmp_mag = mkstemp(dir=dir_, prefix="snaphu.mag.", suffix=".f4")
+            tmp_mag_mmap = np.memmap(tmp_mag, dtype=np.float32, shape=igram.shape)
+            copy_blockwise(tmp_igram_mmap, tmp_mag_mmap, transform=np.abs)
+            tmp_mag_mmap.flush()
+
+            # Re-run SNAPHU to compute new connected components from the unwrapped phase
+            # as though in single-tile mode, overwriting the original connected
+            # components file.
             regrow_conncomp_from_unw(
                 unw_file=tmp_unw,
                 corr_file=tmp_corr,
+                mag_file=tmp_mag,
                 conncomp_file=tmp_conncomp,
                 line_length=igram.shape[1],
                 nlooks=nlooks,
