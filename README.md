@@ -48,6 +48,14 @@ $ cd snaphu-py
 $ pip install .
 ```
 
+> [!NOTE]
+> [Editable installs] are experimentally supported, with some caveats and configuration.
+> See here for details:
+> https://scikit-build-core.readthedocs.io/en/latest/configuration.html#editable-installs
+
+[Editable installs]:
+  https://pip.pypa.io/en/stable/topics/local-project-installs/#editable-installs
+
 ## Usage
 
 ### Basic usage
