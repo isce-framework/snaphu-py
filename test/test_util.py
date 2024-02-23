@@ -119,10 +119,15 @@ class TestScratchDirectory:
                 assert scratchdir == path
                 assert scratchdir.is_dir()
 
-    def test_existing_directory(self):
-        with tempfile.TemporaryDirectory() as tmpdir:  # noqa: SIM117
-            with scratch_directory(tmpdir, delete=False) as scratchdir:
+    @pytest.mark.parametrize("delete", [True, False])
+    def test_existing_directory(self, *, delete: bool):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            with scratch_directory(tmpdir, delete=delete) as scratchdir:
                 assert scratchdir == Path(tmpdir)
+
+            # An existing directory should not be cleaned up by the context manager,
+            # regardless of the `delete` parameter.
+            assert Path(tmpdir).is_dir()
 
     @pytest.mark.parametrize("delete", [True, False])
     def test_delete(self, *, delete: bool):

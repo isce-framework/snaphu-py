@@ -155,8 +155,9 @@ def scratch_directory(
     file system path if it did not already exist. Otherwise, if `dir_` is None, a
     temporary directory will instead be created as though by ``tempfile.mkdtemp()``.
 
-    The directory may be automatically removed from the file system upon exiting the
-    context manager.
+    If a directory was created this way, it may be automatically removed from the file
+    system upon exiting the context manager, depending on the `delete` argument. If the
+    directory already existed, it will not be removed.
 
     Parameters
     ----------
@@ -165,7 +166,8 @@ def scratch_directory(
         to None.
     delete : bool, optional
         If True, the directory and its contents are recursively removed from the
-        file system upon exiting the context manager. Defaults to True.
+        file system upon exiting the context manager. This parameter is ignored if the
+        specified path was an existing directory. Defaults to True.
 
     Yields
     ------
@@ -177,7 +179,13 @@ def scratch_directory(
         scratchdir = Path(mkdtemp())
     else:
         scratchdir = Path(dir_)
-        scratchdir.mkdir(parents=True, exist_ok=True)
+
+        # If the directory already existed, don't delete it upon exiting the context
+        # manager. Otherwise, create the directory.
+        if scratchdir.exists():
+            delete = False
+        else:
+            scratchdir.mkdir(parents=True)
 
     yield scratchdir
 

@@ -50,11 +50,12 @@ $ pip install .
 
 > [!NOTE]
 > [Editable installs] are experimentally supported, with some caveats and configuration.
-> See here for details:
-> https://scikit-build-core.readthedocs.io/en/latest/configuration.html#editable-installs
+> See [here] for details.
 
 [Editable installs]:
   https://pip.pypa.io/en/stable/topics/local-project-installs/#editable-installs
+[here]:
+  https://scikit-build-core.readthedocs.io/en/latest/configuration.html#editable-installs
 
 ## Usage
 
