@@ -468,8 +468,8 @@ def unwrap(  # type: ignore[no-untyped-def]
     delete_scratch : bool, optional
         If True, if a scratch directory was created by this function, it will be
         automatically removed from the file system when the function exits. Otherwise,
-        the scratch directory will be preserved. This parameter has no effect if
-        `scratchdir` is the path of an existing directory. Defaults to True.
+        the scratch directory will be preserved. Existing directories are not deleted.
+        Defaults to True.
     unw : snaphu.io.OutputDataset or None, optional
         An optional output dataset to store the unwrapped phase, in radians. If
         provided, it must have the same dimensions as the input interferogram and
