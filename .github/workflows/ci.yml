@@ -155,7 +155,7 @@ jobs:
       - run: |
           pipx run git-archive-all ${{ env.name_and_tag }}.tar.gz
           tar -ztvf ${{ env.name_and_tag }}.tar.gz
-      - uses: softprops/action-gh-release@v1
+      - uses: softprops/action-gh-release@v2
         with:
           files: |
             ${{ env.name_and_tag }}.zip
