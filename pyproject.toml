@@ -47,6 +47,7 @@ Issues = "https://github.com/isce-framework/snaphu-py/issues"
 preview = true
 
 [tool.mypy]
+enable_error_code = ["ignore-without-code", "redundant-expr", "truthy-bool"]
 strict = true
 
 [[tool.mypy.overrides]]
