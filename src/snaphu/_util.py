@@ -3,7 +3,7 @@ from __future__ import annotations
 import itertools
 import os
 import shutil
-from collections.abc import Generator, Iterable, Iterator
+from collections.abc import Callable, Generator, Iterable, Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
@@ -12,11 +12,35 @@ from tempfile import mkdtemp
 import numpy as np
 from numpy.typing import ArrayLike
 
+from .io import InputDataset, OutputDataset
+
 __all__ = [
     "BlockIterator",
     "ceil_divide",
+    "copy_blockwise",
+    "nan_to_zero",
     "scratch_directory",
 ]
+
+
+def as_tuple_of_int(ints: int | Iterable[int]) -> tuple[int, ...]:
+    """
+    Convert the input to a tuple of ints.
+
+    Parameters
+    ----------
+    ints : int or iterable of int
+        One or more integers.
+
+    Returns
+    -------
+    out : tuple of int
+        Tuple containing the input(s).
+    """
+    try:
+        return (int(ints),)  # type: ignore[arg-type]
+    except TypeError:
+        return tuple([int(i) for i in ints])  # type: ignore[union-attr]
 
 
 def ceil_divide(n: ArrayLike, d: ArrayLike) -> np.ndarray:
@@ -41,26 +65,6 @@ def ceil_divide(n: ArrayLike, d: ArrayLike) -> np.ndarray:
     n = np.asanyarray(n)
     d = np.asanyarray(d)
     return (n + d - np.sign(d)) // d
-
-
-def as_tuple_of_int(ints: int | Iterable[int]) -> tuple[int, ...]:
-    """
-    Convert the input to a tuple of ints.
-
-    Parameters
-    ----------
-    ints : int or iterable of int
-        One or more integers.
-
-    Returns
-    -------
-    out : tuple of int
-        Tuple containing the input(s).
-    """
-    try:
-        return (int(ints),)  # type: ignore[arg-type]
-    except TypeError:
-        return tuple([int(i) for i in ints])  # type: ignore[union-attr]
 
 
 @dataclass(frozen=True)
@@ -142,6 +146,62 @@ class BlockIterator(Iterable[tuple[slice, ...]]):
 
             # Yield a tuple of slice objects.
             yield tuple(itertools.starmap(slice, zip(start, stop)))
+
+
+def copy_blockwise(
+    src: InputDataset,
+    dst: OutputDataset,
+    chunks: tuple[int, int] = (1024, 1024),
+    *,
+    transform: Callable[[ArrayLike], np.ndarray] | None = None,
+) -> None:
+    """
+    Copy the contents of `src` to `dst` block-by-block.
+
+    Parameters
+    ----------
+    src : snaphu.io.InputDataset
+        Source dataset.
+    dst : snaphu.io.OutputDataset
+        Destination dataset.
+    chunks : (int, int), optional
+        Block dimensions. Defaults to (1024, 1024).
+    transform : callable or None, optional
+        An optional function object that is applied to each input block of data from
+        `src` to produce the corresponding output block in `dst`. The function should
+        take a single array_like parameter and return a NumPy array. If None, no
+        transform is applied. Defaults to None.
+    """
+    shape = src.shape
+    if dst.shape != shape:
+        errmsg = (
+            "shape mismatch: src and dst must have the same shape, instead got"
+            f" {src.shape=} and {dst.shape=}"
+        )
+        raise ValueError(errmsg)
+
+    for block in BlockIterator(shape, chunks):
+        if transform is None:
+            dst[block] = src[block]
+        else:
+            dst[block] = transform(src[block])
+
+
+def nan_to_zero(arr: ArrayLike) -> np.ndarray:
+    """
+    Replace Not a Number (NaN) values with zeros.
+
+    Parameters
+    ----------
+    arr : array_like
+        The input array.
+
+    Returns
+    -------
+    np.ndarray
+        A copy of the input array with NaN values replaced with zeros.
+    """
+    return np.where(np.isnan(arr), 0, arr)
 
 
 @contextmanager

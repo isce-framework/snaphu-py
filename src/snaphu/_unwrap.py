@@ -2,16 +2,14 @@ from __future__ import annotations
 
 import os
 import textwrap
-from collections.abc import Callable
 from pathlib import Path
 from tempfile import mkstemp
 from typing import cast, overload
 
 import numpy as np
-from numpy.typing import ArrayLike
 
 from ._snaphu import run_snaphu
-from ._util import BlockIterator, scratch_directory
+from ._util import copy_blockwise, nan_to_zero, scratch_directory
 from .io import InputDataset, OutputDataset
 
 __all__ = [
@@ -198,62 +196,6 @@ def normalize_and_validate_tiling_params(
         nproc = os.cpu_count() or 1
 
     return ntiles, tile_overlap, nproc
-
-
-def nan_to_zero(arr: ArrayLike) -> np.ndarray:
-    """
-    Replace Not a Number (NaN) values with zeros.
-
-    Parameters
-    ----------
-    arr : array_like
-        The input array.
-
-    Returns
-    -------
-    np.ndarray
-        A copy of the input array with NaN values replaced with zeros.
-    """
-    return np.where(np.isnan(arr), 0, arr)
-
-
-def copy_blockwise(
-    src: InputDataset,
-    dst: OutputDataset,
-    chunks: tuple[int, int] = (1024, 1024),
-    *,
-    transform: Callable[[ArrayLike], np.ndarray] | None = None,
-) -> None:
-    """
-    Copy the contents of `src` to `dst` block-by-block.
-
-    Parameters
-    ----------
-    src : snaphu.io.InputDataset
-        Source dataset.
-    dst : snaphu.io.OutputDataset
-        Destination dataset.
-    chunks : (int, int), optional
-        Block dimensions. Defaults to (1024, 1024).
-    transform : callable or None, optional
-        An optional function object that is applied to each input block of data from
-        `src` to produce the corresponding output block in `dst`. The function should
-        take a single array_like parameter and return a NumPy array. If None, no
-        transform is applied. Defaults to None.
-    """
-    shape = src.shape
-    if dst.shape != shape:
-        errmsg = (
-            "shape mismatch: src and dst must have the same shape, instead got"
-            f" {src.shape=} and {dst.shape=}"
-        )
-        raise ValueError(errmsg)
-
-    for block in BlockIterator(shape, chunks):
-        if transform is None:
-            dst[block] = src[block]
-        else:
-            dst[block] = transform(src[block])
 
 
 def regrow_conncomp_from_unw(
