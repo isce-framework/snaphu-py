@@ -8,6 +8,7 @@ from typing import cast, overload
 
 import numpy as np
 
+from ._conncomp import regrow_conncomp_from_unw
 from ._snaphu import run_snaphu
 from ._util import copy_blockwise, nan_to_zero, scratch_directory
 from .io import InputDataset, OutputDataset
@@ -196,85 +197,6 @@ def normalize_and_validate_tiling_params(
         nproc = os.cpu_count() or 1
 
     return ntiles, tile_overlap, nproc
-
-
-def regrow_conncomp_from_unw(
-    unw_file: str | os.PathLike[str],
-    corr_file: str | os.PathLike[str],
-    mag_file: str | os.PathLike[str],
-    conncomp_file: str | os.PathLike[str],
-    line_length: int,
-    nlooks: float,
-    cost: str,
-    mask_file: str | os.PathLike[str] | None = None,
-    scratchdir: str | os.PathLike[str] | None = None,
-) -> None:
-    """
-    Run SNAPHU to regrow connected components from an unwrapped input.
-
-    This is particularly useful if SNAPHU was initially run in tiled mode, resulting in
-    a set of connected components that are disjoint across tile boundaries. The
-    connected components will be recomputed as though by a single tile, so that
-    components are no longer delimited by the extents of each tile.
-
-    This function does not compute a new unwrapped solution.
-
-    Parameters
-    ----------
-    unw_file : path-like
-        The input unwrapped phase file path.
-    corr_file : path-like
-        The input coherence file path.
-    mag_file : path-like
-        The input interferogram magnitude file path.
-    conncomp_file : path-like
-        The output connected component labels file path.
-    line_length : int
-        The line length, in samples, of the input & output arrays.
-    nlooks : float
-        The equivalent number of independent looks used to form the sample coherence.
-    cost : str
-        Statistical cost mode.
-    mask_file : path-like or None, optional
-        An optional file path of a byte mask file. If None, no mask is applied. Defaults
-        to None.
-    scratchdir : path-like or None, optional
-        The scratch directory where the config file will be written. If None, a
-        default temporary directory is chosen as though by ``tempfile.gettempdir()``.
-        Defaults to None.
-    """
-    # In REGROWCONNCOMPS mode, SNAPHU recomputes the cost arrays (but does not
-    # re-unwrap), so we should pass in all parameters necessary to compute costs, but
-    # don't need to pass an INITMETHOD, for example.
-    config = textwrap.dedent(
-        f"""\
-        REGROWCONNCOMPS TRUE
-        INFILE {os.fspath(unw_file)}
-        INFILEFORMAT FLOAT_DATA
-        UNWRAPPEDINFILEFORMAT FLOAT_DATA
-        CORRFILE {os.fspath(corr_file)}
-        CORRFILEFORMAT FLOAT_DATA
-        MAGFILE {os.fspath(mag_file)}
-        MAGFILEFORMAT FLOAT_DATA
-        CONNCOMPFILE {os.fspath(conncomp_file)}
-        CONNCOMPOUTTYPE UINT
-        LINELENGTH {line_length}
-        NCORRLOOKS {nlooks}
-        STATCOSTMODE {cost.upper()}
-        """
-    )
-    if mask_file is not None:
-        config += f"BYTEMASKFILE {os.fspath(mask_file)}\n"
-
-    # Write config parameters to file. The config file should have a descriptive name to
-    # disambiguate it from the config file used for unwrapping.
-    _, config_file = mkstemp(
-        dir=scratchdir, prefix="snaphu-regrow-conncomps.config.", suffix=".txt"
-    )
-    Path(config_file).write_text(config)
-
-    # Run SNAPHU in REGROWCONNCOMPS mode to generate new connected component labels.
-    run_snaphu(config_file)
 
 
 @overload
@@ -566,13 +488,13 @@ def unwrap(  # type: ignore[no-untyped-def]
             regrow_conncomp_from_unw(
                 unw_file=tmp_unw,
                 corr_file=tmp_corr,
-                mag_file=tmp_mag,
                 conncomp_file=tmp_conncomp,
                 line_length=igram.shape[1],
                 nlooks=nlooks,
                 cost=cost,
-                scratchdir=dir_,
+                mag_file=tmp_mag,
                 mask_file=tmp_mask,
+                scratchdir=dir_,
             )
 
         # Get the output unwrapped phase data.
