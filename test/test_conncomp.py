@@ -100,6 +100,7 @@ class TestGrowConnComps:
 
         np.testing.assert_array_equal(conncomp, 1)
         assert conncomp.shape == unw.shape
+        assert conncomp.dtype == np.uint32
 
     def test_output_parameter(self):
         unw = np.zeros(shape=(128, 128), dtype=np.float32)
@@ -210,6 +211,30 @@ class TestGrowConnComps:
         conncomp = snaphu.grow_conncomps(unw, corr, nlooks=1.0, mag=mag)
 
         self.check_conncomp_4_quadrants(conncomp)
+
+    def test_min_conncomp_frac(self):
+        unw = np.zeros(shape=(1000, 1000), dtype=np.float32)
+        corr = np.ones(shape=unw.shape, dtype=np.float32)
+
+        # Create a mask containing a single region of valid pixels with area equal to 1%
+        # of the total array, surrounded by invalid pixels.
+        mask = np.zeros(unw.shape, dtype=np.bool_)
+        mask[450:550, 450:550] = True
+
+        # Grow connected components with `min_conncomp_frac` slightly less than 0.01.
+        # There should be a single nonzero connected component label.
+        eps = 1e-3
+        conncomp = snaphu.grow_conncomps(
+            unw, corr, nlooks=1.0, mask=mask, min_conncomp_frac=0.01 - eps
+        )
+        assert set(np.unique(conncomp)) == {0, 1}
+
+        # Grow connected components with `min_conncomp_frac` slightly greater than 0.01.
+        # There should be no nonzero connected component labels.
+        conncomp = snaphu.grow_conncomps(
+            unw, corr, nlooks=1.0, mask=mask, min_conncomp_frac=0.01 + eps
+        )
+        assert set(np.unique(conncomp)) == {0}
 
     def test_shape_mismatch(self):
         unw = np.empty(shape=(128, 128), dtype=np.float32)

@@ -34,6 +34,7 @@ def regrow_conncomp_from_unw(
     cost: str,
     mag_file: str | os.PathLike[str] | None = None,
     mask_file: str | os.PathLike[str] | None = None,
+    min_conncomp_frac: float = 0.01,
     scratchdir: str | os.PathLike[str] | None = None,
 ) -> None:
     """
@@ -66,6 +67,9 @@ def regrow_conncomp_from_unw(
     mask_file : path-like or None, optional
         An optional file path of a byte mask file. If None, no mask is applied. Defaults
         to None.
+    min_conncomp_frac : float, optional
+        Minimum size of a single connected component, as a fraction of the total number
+        of pixels in the array. Defaults to 0.01.
     scratchdir : path-like or None, optional
         The scratch directory where the config file will be written. If None, a
         default temporary directory is chosen as though by ``tempfile.gettempdir()``.
@@ -87,6 +91,7 @@ def regrow_conncomp_from_unw(
         LINELENGTH {line_length}
         NCORRLOOKS {nlooks}
         STATCOSTMODE {cost.upper()}
+        MINCONNCOMPFRAC {min_conncomp_frac}
         """
     )
     if mag_file is not None:
@@ -114,6 +119,7 @@ def grow_conncomps(
     *,
     mag: InputDataset | None = None,
     mask: InputDataset | None = None,
+    min_conncomp_frac: float = 0.01,
     scratchdir: str | os.PathLike[str] | None = None,
     delete_scratch: bool = True,
     conncomp: OutputDataset,
@@ -130,6 +136,7 @@ def grow_conncomps(
     *,
     mag: InputDataset | None = None,
     mask: InputDataset | None = None,
+    min_conncomp_frac: float = 0.01,
     scratchdir: str | os.PathLike[str] | None = None,
     delete_scratch: bool = True,
 ) -> np.ndarray: ...  # pragma: no cover
@@ -143,6 +150,7 @@ def grow_conncomps(  # type: ignore[no-untyped-def]
     *,
     mag=None,
     mask=None,
+    min_conncomp_frac=0.01,
     scratchdir=None,
     delete_scratch=True,
     conncomp=None,
@@ -191,6 +199,9 @@ def grow_conncomps(  # type: ignore[no-untyped-def]
         pixels that should be masked out. If provided, it must have the same dimensions
         as the input unwrapped phase and boolean or 8-bit integer datatype. Defaults to
         None.
+    min_conncomp_frac : float, optional
+        Minimum size of a single connected component, as a fraction of the total number
+        of pixels in the array. Defaults to 0.01.
     scratchdir : path-like or None, optional
         Scratch directory where intermediate processing artifacts are written.
         If the specified directory does not exist, it will be created. If None,
@@ -306,6 +317,7 @@ def grow_conncomps(  # type: ignore[no-untyped-def]
             cost=cost,
             mag_file=tmp_mag,
             mask_file=tmp_mask,
+            min_conncomp_frac=min_conncomp_frac,
             scratchdir=dir_,
         )
 
