@@ -99,6 +99,7 @@ def unwrap(
     init: str = "mcf",
     *,
     mask: InputDataset | None = None,
+    min_conncomp_frac: float = 0.01,
     ntiles: tuple[int, int] = (1, 1),
     tile_overlap: int | tuple[int, int] = 0,
     nproc: int = 1,
@@ -122,6 +123,7 @@ def unwrap(
     init: str = "mcf",
     *,
     mask: InputDataset | None = None,
+    min_conncomp_frac: float = 0.01,
     ntiles: tuple[int, int] = (1, 1),
     tile_overlap: int | tuple[int, int] = 0,
     nproc: int = 1,
@@ -141,6 +143,7 @@ def unwrap(  # type: ignore[no-untyped-def]
     init="mcf",
     *,
     mask=None,
+    min_conncomp_frac=0.01,
     ntiles=(1, 1),
     tile_overlap=0,
     nproc=1,
@@ -191,6 +194,9 @@ def unwrap(  # type: ignore[no-untyped-def]
         pixels that should be masked out. If provided, it must have the same dimensions
         as the input interferogram and boolean or 8-bit integer datatype. Defaults to
         None.
+    min_conncomp_frac : float, optional
+        Minimum size of a single connected component, as a fraction of the total number
+        of pixels in the tile. Defaults to 0.01.
     ntiles : (int, int), optional
         Number of tiles along the row/column directions. If `ntiles` is (1, 1), then the
         interferogram will be unwrapped as a single tile. Increasing the number of tiles
@@ -344,6 +350,7 @@ def unwrap(  # type: ignore[no-untyped-def]
             NCORRLOOKS {nlooks}
             STATCOSTMODE {cost.upper()}
             INITMETHOD {init.upper()}
+            MINCONNCOMPFRAC {min_conncomp_frac}
             NTILEROW {ntiles[0]}
             NTILECOL {ntiles[1]}
             ROWOVRLP {tile_overlap[0]}
@@ -390,6 +397,7 @@ def unwrap(  # type: ignore[no-untyped-def]
                 cost=cost,
                 mag_file=tmp_mag,
                 mask_file=tmp_mask,
+                min_conncomp_frac=min_conncomp_frac,
                 scratchdir=dir_,
             )
 
