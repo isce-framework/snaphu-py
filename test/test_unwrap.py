@@ -177,8 +177,8 @@ class TestUnwrap:
         igram = np.empty(shape=(128, 128), dtype=np.complex64)
         corr = np.empty(shape=(128, 129), dtype=np.float32)
         pattern = (
-            "^shape mismatch: corr and igram must have the same shape, instead got"
-            r" corr.shape=\(128, 129\) and igram.shape=\(128, 128\)$"
+            r"^shape mismatch: corr dataset must have shape \(128, 128\), instead got"
+            r" corr.shape=\(128, 129\)"
         )
         with pytest.raises(ValueError, match=pattern):
             snaphu.unwrap(igram, corr, nlooks=100.0)
@@ -187,7 +187,7 @@ class TestUnwrap:
         shape = (128, 128)
         igram = np.empty(shape, dtype=np.float64)
         corr = np.empty(shape, dtype=np.float32)
-        pattern = r"^igram must be a complex-valued array, instead got dtype=float64$"
+        pattern = r"^igram dataset must be complex-valued, instead got dtype=float64$"
         with pytest.raises(TypeError, match=pattern):
             snaphu.unwrap(igram, corr, nlooks=100.0)
 
@@ -195,7 +195,7 @@ class TestUnwrap:
         shape = (128, 128)
         igram = np.empty(shape, dtype=np.complex64)
         corr = np.empty(shape, dtype=np.complex64)
-        pattern = r"^corr must be a real-valued array, instead got dtype=complex64$"
+        pattern = r"^corr dataset must be real-valued, instead got dtype=complex64$"
         with pytest.raises(TypeError, match=pattern):
             snaphu.unwrap(igram, corr, nlooks=100.0)
 
