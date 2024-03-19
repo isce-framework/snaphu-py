@@ -8,6 +8,14 @@ from typing import cast, overload
 
 import numpy as np
 
+from ._check import (
+    check_bool_or_byte_dtype,
+    check_complex_dtype,
+    check_cost_mode,
+    check_dataset_shapes,
+    check_float_dtype,
+    check_integer_dtype,
+)
 from ._conncomp import regrow_conncomp_from_unw
 from ._snaphu import run_snaphu
 from ._util import copy_blockwise, nan_to_zero, scratch_directory
@@ -16,123 +24,6 @@ from .io import InputDataset, OutputDataset
 __all__ = [
     "unwrap",
 ]
-
-
-def check_shapes(
-    igram: InputDataset,
-    corr: InputDataset,
-    unw: OutputDataset,
-    conncomp: OutputDataset,
-    mask: InputDataset | None = None,
-) -> None:
-    """
-    Check that the arguments are 2-D arrays with matching shapes.
-
-    Parameters
-    ----------
-    igram : snaphu.io.InputDataset
-        The input interferogram. Must be a 2-D array.
-    corr : snaphu.io.InputDataset
-        The input coherence. Must be a 2-D array with the same shape as `igram`.
-    unw : snaphu.io.OutputDataset
-        The output unwrapped phase. Must be a 2-D array with the same shape as `igram`.
-    conncomp : snaphu.io.OutputDataset
-        The output connected component labels. Must be a 2-D array with the same shape
-        as `igram`.
-    mask : snaphu.io.InputDataset or None, optional
-        An optional binary mask of valid samples. If not None, it must be a 2-D array
-        with the same shape as `igram`. Defaults to None.
-
-    Raises
-    ------
-    ValueError
-        If any array is not 2-D or has a different shape than the others.
-    """
-    if igram.ndim != 2:
-        errmsg = f"igram must be 2-D, instead got ndim={igram.ndim}"
-        raise ValueError(errmsg)
-
-    def raise_shape_mismatch_error(
-        name: str,
-        arr: InputDataset | OutputDataset,
-    ) -> None:
-        errmsg = (
-            f"shape mismatch: {name} and igram must have the same shape, instead got"
-            f" {name}.shape={arr.shape} and {igram.shape=}"
-        )
-        raise ValueError(errmsg)
-
-    if corr.shape != igram.shape:
-        raise_shape_mismatch_error("corr", corr)
-    if unw.shape != igram.shape:
-        raise_shape_mismatch_error("unw", unw)
-    if conncomp.shape != igram.shape:
-        raise_shape_mismatch_error("conncomp", conncomp)
-    if (mask is not None) and (mask.shape != igram.shape):
-        raise_shape_mismatch_error("mask", mask)
-
-
-def check_dtypes(
-    igram: InputDataset,
-    corr: InputDataset,
-    unw: OutputDataset,
-    conncomp: OutputDataset,
-    mask: InputDataset | None = None,
-) -> None:
-    """
-    Check that the arguments have valid datatypes.
-
-    Parameters
-    ----------
-    igram : snaphu.io.InputDataset
-        The input interferogram. Must be a complex-valued array.
-    corr : snaphu.io.InputDataset
-        The input coherence. Must be a real-valued array.
-    unw : snaphu.io.OutputDataset
-        The output unwrapped phase. Must be a real-valued array.
-    conncomp : snaphu.io.OutputDataset
-        The output connected component labels. Must be an integer-valued array.
-    mask : snaphu.io.InputDataset or None, optional
-        An optional binary mask of valid samples. If not None, it must be a boolean or
-        8-bit integer array.
-
-    Raises
-    ------
-    TypeError
-        If any array has an unexpected datatype.
-    """
-    if not np.issubdtype(igram.dtype, np.complexfloating):
-        errmsg = (
-            f"igram must be a complex-valued array, instead got dtype={igram.dtype}"
-        )
-        raise TypeError(errmsg)
-
-    if not np.issubdtype(corr.dtype, np.floating):
-        errmsg = f"corr must be a real-valued array, instead got dtype={corr.dtype}"
-        raise TypeError(errmsg)
-
-    if not np.issubdtype(unw.dtype, np.floating):
-        errmsg = f"unw must be a real-valued array, instead got dtype={unw.dtype}"
-        raise TypeError(errmsg)
-
-    if not np.issubdtype(conncomp.dtype, np.integer):
-        errmsg = (
-            "conncomp must be an integer-valued array, instead got"
-            f" dtype={conncomp.dtype}"
-        )
-        raise TypeError(errmsg)
-
-    if (
-        (mask is not None)
-        and (mask.dtype != np.bool_)
-        and (mask.dtype != np.uint8)
-        and (mask.dtype != np.int8)
-    ):
-        errmsg = (
-            "mask must be a boolean or 8-bit integer array (or None), instead got"
-            f" dtype={mask.dtype}"
-        )
-        raise TypeError(errmsg)
 
 
 def normalize_and_validate_tiling_params(
@@ -378,22 +269,27 @@ def unwrap(  # type: ignore[no-untyped-def]
     if conncomp is None:
         conncomp = np.zeros(shape=igram.shape, dtype=np.uint32)
 
-    # Ensure that input & output datasets have valid dimensions and datatypes.
-    check_shapes(igram, corr, unw, conncomp, mask)
-    check_dtypes(igram, corr, unw, conncomp, mask)
+    if igram.ndim != 2:
+        errmsg = f"igram must be 2-D, instead got ndim={igram.ndim}"
+        raise ValueError(errmsg)
+
+    # Ensure that input & output datasets have matching shapes.
+    check_dataset_shapes(igram.shape, corr=corr, unw=unw, conncomp=conncomp)
+    if mask is not None:
+        check_dataset_shapes(igram.shape, mask=mask)
+
+    # Ensure that input & output datasets have valid datatypes.
+    check_complex_dtype(igram=igram)
+    check_float_dtype(unw=unw, corr=corr)
+    check_integer_dtype(conncomp=conncomp)
+    if mask is not None:
+        check_bool_or_byte_dtype(mask=mask)
 
     if nlooks < 1.0:
         errmsg = f"nlooks must be >= 1, instead got {nlooks}"
         raise ValueError(errmsg)
 
-    if cost == "topo":
-        errmsg = "'topo' cost mode is not currently supported"
-        raise NotImplementedError(errmsg)
-
-    cost_modes = {"defo", "smooth"}
-    if cost not in cost_modes:
-        errmsg = f"cost mode must be in {cost_modes}, instead got {cost!r}"
-        raise ValueError(errmsg)
+    check_cost_mode(cost)
 
     init_methods = {"mst", "mcf"}
     if init not in init_methods:
