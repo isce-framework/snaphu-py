@@ -4,6 +4,7 @@
 [![codecov](https://codecov.io/gh/isce-framework/snaphu-py/graph/badge.svg?token=IV41TI56EA)](https://codecov.io/gh/isce-framework/snaphu-py)
 [![Conda Version](https://img.shields.io/conda/vn/conda-forge/snaphu.svg)](https://anaconda.org/conda-forge/snaphu)
 [![PyPI - Version](https://img.shields.io/pypi/v/snaphu.svg)](https://pypi.org/project/snaphu)
+![OS](https://img.shields.io/badge/linux%20%7C%20macos-linux%20%7C%20macos?label=os&color=blue)
 
 A simple Python wrapper for the Statistical-Cost, Network-Flow Algorithm for Phase
 Unwrapping (SNAPHU)
@@ -210,6 +211,11 @@ the library can be obtained using
 
 [latest available SNAPHU release]:
   https://web.stanford.edu/group/radar/softwareandlinks/sw/snaphu/
+
+### What platforms are supported?
+
+Unix-like systems (e.g. Linux, macOS) are supported. Installation on Windows is not
+currently supported.
 
 ## Copyright
 
