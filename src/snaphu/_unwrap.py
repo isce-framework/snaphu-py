@@ -363,6 +363,10 @@ def unwrap(  # type: ignore[no-untyped-def]
         if mask is not None:
             config += f"BYTEMASKFILE {tmp_mask}\n"
 
+        # To help removing tile boundaries after unwrapping
+        if ntiles != (1, 1):
+            config += "SINGLETILEREOPTIMIZE TRUE\n"
+
         # Write config parameters to file.
         _, config_file = mkstemp(dir=dir_, prefix="snaphu.config.", suffix=".txt")
         Path(config_file).write_text(config)
