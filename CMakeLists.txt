@@ -11,6 +11,10 @@ if(NOT DEFINED SKBUILD_PROJECT_NAME)
   )
 endif()
 
+if(WIN32)
+  message(FATAL_ERROR "Windows is not supported as a target platform.")
+endif()
+
 project(${SKBUILD_PROJECT_NAME} LANGUAGES C)
 
 # Relative path to the subdirectory containing the SNAPHU source files & header.
