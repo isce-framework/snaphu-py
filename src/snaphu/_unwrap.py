@@ -105,6 +105,7 @@ def unwrap(
     nproc: int = 1,
     tile_cost_thresh: int = 500,
     min_region_size: int = 100,
+    single_tile_reoptimize: bool = True,
     regrow_conncomps: bool = True,
     scratchdir: str | os.PathLike[str] | None = None,
     delete_scratch: bool = True,
@@ -129,6 +130,7 @@ def unwrap(
     nproc: int = 1,
     tile_cost_thresh: int = 500,
     min_region_size: int = 100,
+    single_tile_reoptimize: bool = True,
     regrow_conncomps: bool = True,
     scratchdir: str | os.PathLike[str] | None = None,
     delete_scratch: bool = True,
@@ -149,6 +151,7 @@ def unwrap(  # type: ignore[no-untyped-def]
     nproc=1,
     tile_cost_thresh=500,
     min_region_size=100,
+    single_tile_reoptimize=True,
     regrow_conncomps=True,
     scratchdir=None,
     delete_scratch=True,
@@ -217,10 +220,19 @@ def unwrap(  # type: ignore[no-untyped-def]
         to 500.
     min_region_size : int, optional
         Minimum size, in pixels, of a reliable region in tile mode. Defaults to 100.
+    single_tile_reoptimize : bool, optional
+        If True, after unwrapping with multiple tiles, an additional post-processing
+        unwrapping step is performed to re-optimize the unwrapped phase using a single
+        tile. This option is disregarded when `ntiles` is (1, 1). It supersedes the
+        `regrow_conncomps` option -- if both are enabled, only the single-tile
+        re-optimization step will be performed in order to avoid redundant computation.
+        Defaults to True.
     regrow_conncomps : bool, optional
         If True, the connected component labels will be re-computed using a single tile
         after first unwrapping with multiple tiles. This option is disregarded when
-        `ntiles` is (1, 1). Defaults to True.
+        `ntiles` is (1, 1). It has no effect if `single_tile_reoptimize` was also
+        enabled (since regrowing connected components would be redundant in that case).
+        Defaults to True.
     scratchdir : path-like or None, optional
         Scratch directory where intermediate processing artifacts are written.
         If the specified directory does not exist, it will be created. If None,
@@ -363,8 +375,11 @@ def unwrap(  # type: ignore[no-untyped-def]
         if mask is not None:
             config += f"BYTEMASKFILE {tmp_mask}\n"
 
-        # To help removing tile boundaries after unwrapping
-        if ntiles != (1, 1):
+        # Optionally re-optimize the unwrapped phase using a single tile after
+        # unwrapping in tiled mode. This step should have no effect when running in
+        # single-tile mode, so always skip it in that case.
+        single_tile = ntiles == (1, 1)
+        if (not single_tile) and single_tile_reoptimize:
             config += "SINGLETILEREOPTIMIZE TRUE\n"
 
         # Write config parameters to file.
@@ -376,9 +391,9 @@ def unwrap(  # type: ignore[no-untyped-def]
 
         # Optionally regrow connected component labels from the unwrapped phase if
         # SNAPHU was run in tiled mode. This step should have no effect if SNAPHU was
-        # previously run in single-tile mode, so always skip it in that case.
-        single_tile = ntiles == (1, 1)
-        if (not single_tile) and regrow_conncomps:
+        # previously run in single-tile mode or if single-tile re-optimization was
+        # enabled, so always skip it in such cases.
+        if (not single_tile) and (not single_tile_reoptimize) and regrow_conncomps:
             # The connected component regrowing step takes as input the unwrapped phase,
             # which is missing magnitude information. The magnitude may be necessary,
             # for example, to detect zero-magnitude pixels which should be masked out
