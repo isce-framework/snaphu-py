@@ -97,6 +97,20 @@ def make_temp_geotiff_raster() -> Generator[snaphu.io.Raster, None, None]:
         yield raster
 
 
+def test_public_raster():
+    if has_rasterio():
+        assert "Raster" in dir(snaphu.io)
+    else:
+        assert "Raster" not in dir(snaphu.io)
+
+
+@pytest.mark.skipif(has_rasterio(), reason="")
+def test_bad_raster_import():
+    pattern = r"^cannot import name 'Raster' from 'snaphu.io'"
+    with pytest.raises(ImportError, match=pattern):
+        from snaphu.io import Raster
+
+
 @pytest.mark.skipif(not has_rasterio(), reason="requires rasterio package")
 class TestRaster:
     @pytest.fixture(scope="class")
