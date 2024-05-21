@@ -366,10 +366,6 @@ def unwrap(  # type: ignore[no-untyped-def]
         # To help removing tile boundaries after unwrapping
         if ntiles != (1, 1):
             config += "SINGLETILEREOPTIMIZE TRUE\n"
-            num_processors = ntiles[0] * ntiles[1]
-            if num_processors > 5:
-                num_processors = 5
-            config += f"NPROC {num_processors}\n"
 
         # Write config parameters to file.
         _, config_file = mkstemp(dir=dir_, prefix="snaphu.config.", suffix=".txt")
