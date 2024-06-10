@@ -38,6 +38,7 @@ repos:
     rev: "v1.10.0"
     hooks:
       - id: mypy
+        exclude: snaphu/io/__init__\.py$
 
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: "v0.4.4"
