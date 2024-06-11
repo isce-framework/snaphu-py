@@ -5,6 +5,7 @@ import numpy as np
 from .io import InputDataset, OutputDataset
 
 __all__ = [
+    "check_2d_shapes",
     "check_bool_or_byte_dtype",
     "check_complex_dtype",
     "check_cost_mode",
@@ -12,6 +13,33 @@ __all__ = [
     "check_float_dtype",
     "check_integer_dtype",
 ]
+
+
+def check_2d_shapes(**shapes: tuple[int, ...]) -> None:
+    """
+    Ensure that the input tuples are valid 2-D shapes.
+
+    Parameters
+    ----------
+    **shapes : dict, optional
+        Input tuples to check for validity. Inputs must be pairs of positive integers.
+        The name of each keyword argument is used to format the error message in case of
+        an invalid input.
+
+    Raises
+    ------
+    ValueError
+        If an input had invalid length or contained invalid (negative or zero) values.
+    """
+    for name, shape in shapes.items():
+        if len(shape) != 2:
+            errmsg = f"{name} must be a pair of ints, instead got {name}={shape}"
+            raise ValueError(errmsg)
+        if not all(n >= 1 for n in shape):
+            errmsg = (
+                f"{name} may not contain negative or zero values, got {name}={shape}"
+            )
+            raise ValueError(errmsg)
 
 
 def check_dataset_shapes(
