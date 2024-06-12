@@ -9,6 +9,7 @@ from typing import cast, overload
 import numpy as np
 
 from ._check import (
+    check_2d_shapes,
     check_bool_or_byte_dtype,
     check_complex_dtype,
     check_cost_mode,
@@ -55,12 +56,7 @@ def normalize_and_validate_tiling_params(
     # Normalize `ntiles` to a tuple and ensure its contents are two positive-valued
     # integers.
     ntiles = tuple(ntiles)  # type: ignore[assignment]
-    if len(ntiles) != 2:
-        errmsg = f"ntiles must be a pair of ints, instead got {ntiles=}"
-        raise ValueError(errmsg)
-    if not all(n >= 1 for n in ntiles):
-        errmsg = f"ntiles may not contain negative or zero values, got {ntiles=}"
-        raise ValueError(errmsg)
+    check_2d_shapes(ntiles=ntiles)
 
     # If `tile_overlap` is iterable, ensure it's a tuple. Otherwise, assume it's a
     # single integer.
@@ -100,6 +96,7 @@ def unwrap(
     *,
     mask: InputDataset | None = None,
     min_conncomp_frac: float = 0.01,
+    phase_grad_window: tuple[int, int] = (7, 7),
     ntiles: tuple[int, int] = (1, 1),
     tile_overlap: int | tuple[int, int] = 0,
     nproc: int = 1,
@@ -125,6 +122,7 @@ def unwrap(
     *,
     mask: InputDataset | None = None,
     min_conncomp_frac: float = 0.01,
+    phase_grad_window: tuple[int, int] = (7, 7),
     ntiles: tuple[int, int] = (1, 1),
     tile_overlap: int | tuple[int, int] = 0,
     nproc: int = 1,
@@ -146,6 +144,7 @@ def unwrap(  # type: ignore[no-untyped-def]
     *,
     mask=None,
     min_conncomp_frac=0.01,
+    phase_grad_window=(7, 7),
     ntiles=(1, 1),
     tile_overlap=0,
     nproc=1,
@@ -200,6 +199,11 @@ def unwrap(  # type: ignore[no-untyped-def]
     min_conncomp_frac : float, optional
         Minimum size of a single connected component, as a fraction of the total number
         of pixels in the tile. Defaults to 0.01.
+    phase_grad_window : (int, int), optional
+        The dimensions, in pixels, of the sliding window used for averaging wrapped
+        phase gradients to get the mean non-layover slope, in directions parallel and
+        perpendicular to the examined phase difference. This parameter corresponds to
+        SNAPHU's `KPARDPSI` and `KPERPDPSI` configuration options. Defaults to (7, 7).
     ntiles : (int, int), optional
         Number of tiles along the row/column directions. If `ntiles` is (1, 1), then the
         interferogram will be unwrapped as a single tile. Increasing the number of tiles
@@ -314,6 +318,10 @@ def unwrap(  # type: ignore[no-untyped-def]
         errmsg = f"init method must be in {init_methods}, instead got {init!r}"
         raise ValueError(errmsg)
 
+    # `phase_grad_window` must be a pair of positive integers.
+    phase_grad_window = tuple(phase_grad_window)
+    check_2d_shapes(phase_grad_window=phase_grad_window)
+
     # Validate inputs related to tiling and coerce them to the expected types.
     ntiles, tile_overlap, nproc = normalize_and_validate_tiling_params(
         ntiles=ntiles, tile_overlap=tile_overlap, nproc=nproc
@@ -363,6 +371,8 @@ def unwrap(  # type: ignore[no-untyped-def]
             STATCOSTMODE {cost.upper()}
             INITMETHOD {init.upper()}
             MINCONNCOMPFRAC {min_conncomp_frac}
+            KPARDPSI {phase_grad_window[0]}
+            KPERPDPSI {phase_grad_window[1]}
             NTILEROW {ntiles[0]}
             NTILECOL {ntiles[1]}
             ROWOVRLP {tile_overlap[0]}

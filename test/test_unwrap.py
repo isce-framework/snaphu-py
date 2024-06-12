@@ -223,6 +223,25 @@ class TestUnwrap:
         with pytest.raises(ValueError, match=pattern):
             snaphu.unwrap(igram, corr, nlooks=100.0, init="asdf")
 
+    def test_bad_phase_grad_window(self):
+        shape = (128, 128)
+        igram = np.empty(shape, dtype=np.complex64)
+        corr = np.empty(shape, dtype=np.float32)
+
+        pattern = (
+            r"^phase_grad_window must be a pair of ints, instead got"
+            r" phase_grad_window=\(1, 2, 3\)$"
+        )
+        with pytest.raises(ValueError, match=pattern):
+            snaphu.unwrap(igram, corr, nlooks=100.0, phase_grad_window=(1, 2, 3))  # type: ignore[arg-type]
+
+        pattern = (
+            r"^phase_grad_window may not contain negative or zero values, got"
+            r" phase_grad_window=\(1, 0\)$"
+        )
+        with pytest.raises(ValueError, match=pattern):
+            snaphu.unwrap(igram, corr, nlooks=100.0, phase_grad_window=(1, 0))
+
     def test_bad_ntiles(self):
         shape = (128, 128)
         igram = np.empty(shape, dtype=np.complex64)
