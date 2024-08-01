@@ -273,7 +273,7 @@ def unwrap(  # type: ignore[no-untyped-def]
 
     where :math:`k_r` and :math:`k_a` are the number of looks in range and azimuth,
     :math:`d_r` and :math:`d_a` are the (single-look) sample spacing in range and
-    azimuth, and :math:`\rho_r` and :math:`\rho_a are the range and azimuth resolution.
+    azimuth, and :math:`\rho_r` and :math:`\rho_a` are the range and azimuth resolution.
 
     References
     ----------
