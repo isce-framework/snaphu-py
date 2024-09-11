@@ -20,7 +20,7 @@ from ._check import (
 from ._conncomp import regrow_conncomp_from_unw
 from ._snaphu import run_snaphu
 from ._util import copy_blockwise, nan_to_zero, scratch_directory
-from .io import InputDataset, OutputDataset
+from .io import InputDataset, MMapArray, OutputDataset
 
 __all__ = [
     "unwrap",
@@ -332,15 +332,13 @@ def unwrap(  # type: ignore[no-untyped-def]
         # copy the input data to it. (`mkstemp` is used to avoid data races in case the
         # same scratch directory was used for multiple SNAPHU processes.)
         _, tmp_igram = mkstemp(dir=dir_, prefix="snaphu.igram.", suffix=".c8")
-        tmp_igram_mmap = np.memmap(tmp_igram, dtype=np.complex64, shape=igram.shape)
-        copy_blockwise(igram, tmp_igram_mmap, transform=nan_to_zero)
-        tmp_igram_mmap.flush()
+        with MMapArray(tmp_igram, shape=igram.shape, dtype=np.complex64) as ifg_mmap:
+            copy_blockwise(igram, ifg_mmap, transform=nan_to_zero)
 
         # Copy the input coherence data to a raw binary file in the scratch directory.
         _, tmp_corr = mkstemp(dir=dir_, prefix="snaphu.corr.", suffix=".f4")
-        tmp_corr_mmap = np.memmap(tmp_corr, dtype=np.float32, shape=corr.shape)
-        copy_blockwise(corr, tmp_corr_mmap, transform=nan_to_zero)
-        tmp_corr_mmap.flush()
+        with MMapArray(tmp_corr, shape=corr.shape, dtype=np.float32) as corr_mmap:
+            copy_blockwise(corr, corr_mmap, transform=nan_to_zero)
 
         # If a mask was provided, copy the mask data to a raw binary file in the scratch
         # directory.
@@ -348,9 +346,8 @@ def unwrap(  # type: ignore[no-untyped-def]
             tmp_mask = None
         else:
             _, tmp_mask = mkstemp(dir=dir_, prefix="snaphu.mask.", suffix=".u1")
-            tmp_mask_mmap = np.memmap(tmp_mask, dtype=np.bool_, shape=mask.shape)
-            copy_blockwise(mask, tmp_mask_mmap)
-            tmp_mask_mmap.flush()
+            with MMapArray(tmp_mask, shape=mask.shape, dtype=np.bool_) as mask_mmap:
+                copy_blockwise(mask, mask_mmap)
 
         # Create files in the scratch directory for SNAPHU outputs.
         _, tmp_unw = mkstemp(dir=dir_, prefix="snaphu.unw.", suffix=".f4")
@@ -410,9 +407,11 @@ def unwrap(  # type: ignore[no-untyped-def]
             # (i.e. connected component label set to 0). So compute the interferogram
             # magnitude and pass it as a separate input file.
             _, tmp_mag = mkstemp(dir=dir_, prefix="snaphu.mag.", suffix=".f4")
-            tmp_mag_mmap = np.memmap(tmp_mag, dtype=np.float32, shape=igram.shape)
-            copy_blockwise(tmp_igram_mmap, tmp_mag_mmap, transform=np.abs)
-            tmp_mag_mmap.flush()
+            with (
+                MMapArray(tmp_igram, shape=igram.shape, dtype=np.complex64) as ifg_mmap,
+                MMapArray(tmp_mag, shape=igram.shape, dtype=np.float32) as mag_mmap,
+            ):
+                copy_blockwise(ifg_mmap, mag_mmap, transform=np.abs)
 
             # Re-run SNAPHU to compute new connected components from the unwrapped phase
             # as though in single-tile mode, overwriting the original connected
@@ -431,11 +430,11 @@ def unwrap(  # type: ignore[no-untyped-def]
             )
 
         # Get the output unwrapped phase data.
-        tmp_unw_mmap = np.memmap(tmp_unw, dtype=np.float32, shape=unw.shape)
-        copy_blockwise(tmp_unw_mmap, unw)
+        with MMapArray(tmp_unw, shape=unw.shape, dtype=np.float32) as unw_mmap:
+            copy_blockwise(unw_mmap, unw)
 
         # Get the output connected component labels.
-        tmp_cc_mmap = np.memmap(tmp_conncomp, dtype=np.uint32, shape=conncomp.shape)
-        copy_blockwise(tmp_cc_mmap, conncomp)
+        with MMapArray(tmp_conncomp, shape=conncomp.shape, dtype=np.uint32) as cc_mmap:
+            copy_blockwise(cc_mmap, conncomp)
 
     return unw, conncomp

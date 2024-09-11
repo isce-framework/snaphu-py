@@ -1,9 +1,11 @@
 from typing import Any
 
 from ._dataset import InputDataset, OutputDataset
+from ._mmap_array import MMapArray
 
 __all__ = [
     "InputDataset",
+    "MMapArray",
     "OutputDataset",
 ]
 
