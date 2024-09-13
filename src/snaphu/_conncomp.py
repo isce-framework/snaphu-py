@@ -16,7 +16,7 @@ from ._check import (
     check_integer_dtype,
 )
 from ._snaphu import run_snaphu
-from ._util import copy_blockwise, nan_to_zero, scratch_directory
+from ._util import nan_to_zero, read_from_file, scratch_directory, write_to_file
 from .io import InputDataset, OutputDataset
 
 __all__ = [
@@ -273,56 +273,47 @@ def grow_conncomps(  # type: ignore[no-untyped-def]
         # Create a raw binary file in the scratch directory for the unwrapped phase and
         # copy the input data to it. (`mkstemp` is used to avoid data races in case the
         # same scratch directory was used for multiple SNAPHU processes.)
-        _, tmp_unw = mkstemp(dir=dir_, prefix="snaphu.unw.", suffix=".f4")
-        tmp_unw_mmap = np.memmap(tmp_unw, dtype=np.float32, shape=unw.shape)
-        copy_blockwise(unw, tmp_unw_mmap, transform=nan_to_zero)
-        tmp_unw_mmap.flush()
+        _, unw_file = mkstemp(dir=dir_, prefix="snaphu.unw.", suffix=".f4")
+        write_to_file(unw, unw_file, transform=nan_to_zero, dtype=np.float32)
 
         # Copy the input coherence data to a raw binary file in the scratch directory.
-        _, tmp_corr = mkstemp(dir=dir_, prefix="snaphu.corr.", suffix=".f4")
-        tmp_corr_mmap = np.memmap(tmp_corr, dtype=np.float32, shape=corr.shape)
-        copy_blockwise(corr, tmp_corr_mmap, transform=nan_to_zero)
-        tmp_corr_mmap.flush()
+        _, corr_file = mkstemp(dir=dir_, prefix="snaphu.corr.", suffix=".f4")
+        write_to_file(corr, corr_file, transform=nan_to_zero, dtype=np.float32)
 
         # If magnitude data was provided, copy it to a raw binary file in the scratch
         # directory.
         if mag is None:
-            tmp_mag = None
+            mag_file = None
         else:
-            _, tmp_mag = mkstemp(dir=dir_, prefix="snaphu.mag.", suffix=".f4")
-            tmp_mag_mmap = np.memmap(tmp_mag, dtype=np.float32, shape=mag.shape)
-            copy_blockwise(mag, tmp_mag_mmap, transform=nan_to_zero)
-            tmp_mag_mmap.flush()
+            _, mag_file = mkstemp(dir=dir_, prefix="snaphu.mag.", suffix=".f4")
+            write_to_file(mag, mag_file, transform=nan_to_zero, dtype=np.float32)
 
         # If a mask was provided, copy the mask data to a raw binary file in the scratch
         # directory.
         if mask is None:
-            tmp_mask = None
+            mask_file = None
         else:
-            _, tmp_mask = mkstemp(dir=dir_, prefix="snaphu.mask.", suffix=".u1")
-            tmp_mask_mmap = np.memmap(tmp_mask, dtype=np.bool_, shape=mask.shape)
-            copy_blockwise(mask, tmp_mask_mmap)
-            tmp_mask_mmap.flush()
+            _, mask_file = mkstemp(dir=dir_, prefix="snaphu.mask.", suffix=".u1")
+            write_to_file(mask, mask_file, dtype=np.bool_)
 
         # Create a raw file in the scratch directory for the output connected
         # components.
-        _, tmp_conncomp = mkstemp(dir=dir_, prefix="snaphu.conncomp.", suffix=".u4")
+        _, conncomp_file = mkstemp(dir=dir_, prefix="snaphu.conncomp.", suffix=".u4")
 
         regrow_conncomp_from_unw(
-            unw_file=tmp_unw,
-            corr_file=tmp_corr,
-            conncomp_file=tmp_conncomp,
+            unw_file=unw_file,
+            corr_file=corr_file,
+            conncomp_file=conncomp_file,
             line_length=unw.shape[1],
             nlooks=nlooks,
             cost=cost,
-            mag_file=tmp_mag,
-            mask_file=tmp_mask,
+            mag_file=mag_file,
+            mask_file=mask_file,
             min_conncomp_frac=min_conncomp_frac,
             scratchdir=dir_,
         )
 
         # Get the output connected component labels.
-        tmp_cc_mmap = np.memmap(tmp_conncomp, dtype=np.uint32, shape=conncomp.shape)
-        copy_blockwise(tmp_cc_mmap, conncomp)
+        read_from_file(conncomp, conncomp_file, dtype=np.uint32)
 
     return conncomp
