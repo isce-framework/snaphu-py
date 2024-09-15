@@ -17,6 +17,7 @@ __all__ = [
     "nan_to_zero",
     "read_from_file",
     "scratch_directory",
+    "slices",
     "write_to_file",
 ]
 
@@ -83,8 +84,8 @@ def write_to_file(
         return a NumPy array. Defaults to `numpy.asanyarray`.
     dtype : data-type or None, optional
         The datatype used to store the dataset contents in the file. Each batch of data
-        will be cast to this datatype before writing it to the file. If None, uses the
-        datatype of the input dataset. Defaults to None.
+        will be cast to this datatype before writing it to the file. If None, the
+        datatype is inferred from the data after applying `transform`. Defaults to None.
     """
     # If the `file` argument was a path, open the file for writing in binary mode and
     # truncate the file if it exists.
@@ -104,14 +105,12 @@ def write_to_file(
         errmsg = f"dataset must be at least 1-D, instead got {dataset.ndim=}"
         raise ValueError(errmsg)
 
-    # If `dtype` was not specified, default to the dataset's dtype.
-    if dtype is None:
-        dtype = dataset.dtype
-
     # Iterate over batches of data by slicing the dataset along its leading axis.
     for slice_ in slices(0, dataset.shape[0], batchsize):
         # Transform the batch of data as necessary and write it to the file.
-        arr = transform(dataset[slice_]).astype(dtype, copy=False)
+        arr = transform(dataset[slice_])
+        if dtype is not None:
+            arr = arr.astype(dtype, copy=False)
         arr.tofile(file)
 
 
