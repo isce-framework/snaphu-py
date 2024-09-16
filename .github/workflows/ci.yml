@@ -94,7 +94,8 @@ jobs:
       - run: |
           pip install check-wheel-contents
           check-wheel-contents ./wheelhouse/*.whl
-      - uses: actions/upload-artifact@v4
+      - if: github.event_name == 'push'
+        uses: actions/upload-artifact@v4
         with:
           name: ${{ env.artifact_prefix }}-wheels-${{ matrix.runner }}-${{ matrix.arch }}
           path: ./wheelhouse/*.whl
@@ -107,7 +108,8 @@ jobs:
         with: { fetch-depth: 0, submodules: true }
       - run: pipx run build --sdist
       - run: pipx run twine check --strict dist/*
-      - uses: actions/upload-artifact@v4
+      - if: github.event_name == 'push'
+        uses: actions/upload-artifact@v4
         with:
           name: ${{ env.artifact_prefix }}-sdist
           path: dist/*.tar.gz
