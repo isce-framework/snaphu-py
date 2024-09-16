@@ -1,190 +1,206 @@
 from __future__ import annotations
 
-import itertools
+import io
 import os
 import shutil
-from collections.abc import Callable, Generator, Iterable, Iterator
+from collections.abc import Callable, Generator, Iterator
 from contextlib import contextmanager
-from dataclasses import dataclass
 from pathlib import Path
-from tempfile import mkdtemp
+from tempfile import mkdtemp, mkstemp
 
 import numpy as np
-from numpy.typing import ArrayLike
+from numpy.typing import ArrayLike, DTypeLike
 
 from .io import InputDataset, OutputDataset
 
 __all__ = [
-    "BlockIterator",
-    "ceil_divide",
-    "copy_blockwise",
     "nan_to_zero",
+    "new_unique_file",
+    "read_from_file",
     "scratch_directory",
+    "slices",
+    "write_to_file",
 ]
 
 
-def as_tuple_of_int(ints: int | Iterable[int]) -> tuple[int, ...]:
-    """
-    Convert the input to a tuple of ints.
-
-    Parameters
-    ----------
-    ints : int or iterable of int
-        One or more integers.
-
-    Returns
-    -------
-    out : tuple of int
-        Tuple containing the input(s).
-    """
-    try:
-        return (int(ints),)  # type: ignore[arg-type]
-    except TypeError:
-        return tuple([int(i) for i in ints])  # type: ignore[union-attr]
-
-
-def ceil_divide(n: ArrayLike, d: ArrayLike) -> np.ndarray:
-    """
-    Return the smallest integer greater than or equal to the quotient of the inputs.
-
-    Computes integer division of dividend `n` by divisor `d`, rounding up instead of
-    truncating.
-
-    Parameters
-    ----------
-    n : array_like
-        The numerator.
-    d : array_like
-        The denominator.
-
-    Returns
-    -------
-    q : numpy.ndarray
-        The quotient, rounded up to the next integer.
-    """
-    n = np.asanyarray(n)
-    d = np.asanyarray(d)
-    return (n + d - np.sign(d)) // d
-
-
-@dataclass(frozen=True)
-class BlockIterator(Iterable[tuple[slice, ...]]):
-    """
-    An iterable over chunks of an N-dimensional array.
-
-    `BlockIterator` represents a partitioning of a multidimensional array into
-    regularly-sized non-overlapping blocks. Each block is represented by an index
-    expression (i.e. a tuple of `slice` objects) that can be used to access the
-    corresponding block of data from the partitioned array. The full set of blocks spans
-    the entire array.
-
-    Iterating over a `BlockIterator` object yields each block in unspecified order.
-    """
-
-    shape: tuple[int, ...]
-    """tuple of int : The shape of the array to be partitioned into blocks."""
-    chunks: tuple[int, ...]
-    """
-    tuple of int : The shape of a typical block. The last block along each axis may be
-    smaller.
-    """
-
-    def __init__(self, shape: int | Iterable[int], chunks: int | Iterable[int]):
-        """
-        Construct a new `BlockIterator` object.
-
-        Parameters
-        ----------
-        shape : int or iterable of int
-            The shape of the array to be partitioned into blocks. Each dimension must be
-            > 0.
-        chunks : int or iterable of int
-            The shape of a typical block. Must be the same length as `shape`. Each chunk
-            dimension must be > 0.
-        """
-        # Normalize `shape` and `chunks` into tuples of ints.
-        shape = as_tuple_of_int(shape)
-        chunks = as_tuple_of_int(chunks)
-
-        if len(chunks) != len(shape):
-            errmsg = (
-                "size mismatch: shape and chunks must have the same number of elements,"
-                f" instead got len(shape) != len(chunks) ({len(shape)} !="
-                f" {len(chunks)})"
-            )
-            raise ValueError(errmsg)
-
-        if not all(n > 0 for n in shape):
-            errmsg = f"shape elements must all be > 0, instead got {shape}"
-            raise ValueError(errmsg)
-        if any(n <= 0 for n in chunks):
-            errmsg = f"chunk elements must all be > 0, instead got {chunks}"
-            raise ValueError(errmsg)
-
-        # XXX Workaround for `frozen=True`.
-        object.__setattr__(self, "shape", shape)
-        object.__setattr__(self, "chunks", chunks)
-
-    def __iter__(self) -> Iterator[tuple[slice, ...]]:
-        """
-        Iterate over blocks in unspecified order.
-
-        Yields
-        ------
-        block : tuple of slice
-            A tuple of slices that can be used to access the corresponding block of data
-            from an array.
-        """
-        # Number of blocks along each array axis.
-        nblocks = ceil_divide(self.shape, self.chunks)
-
-        # Iterate over blocks.
-        for block_ind in itertools.product(*[range(n) for n in nblocks]):
-            # Get the lower & upper index bounds for the current block.
-            start = np.multiply(block_ind, self.chunks)
-            stop = np.minimum(start + self.chunks, self.shape)
-
-            # Yield a tuple of slice objects.
-            yield tuple(itertools.starmap(slice, zip(start, stop)))
-
-
-def copy_blockwise(
-    src: InputDataset,
-    dst: OutputDataset,
-    chunks: tuple[int, int] = (1024, 1024),
+def new_unique_file(
     *,
-    transform: Callable[[ArrayLike], np.ndarray] | None = None,
-) -> None:
+    dir_: str | os.PathLike[str] | None = None,
+    prefix: str | None = None,
+    suffix: str | None = None,
+) -> Path:
     """
-    Copy the contents of `src` to `dst` block-by-block.
+    Create a new file with a unique file name.
 
     Parameters
     ----------
-    src : snaphu.io.InputDataset
-        Source dataset.
-    dst : snaphu.io.OutputDataset
-        Destination dataset.
-    chunks : (int, int), optional
-        Block dimensions. Defaults to (1024, 1024).
-    transform : callable or None, optional
-        An optional function object that is applied to each input block of data from
-        `src` to produce the corresponding output block in `dst`. The function should
-        take a single array_like parameter and return a NumPy array. If None, no
-        transform is applied. Defaults to None.
+    dir_ : str or path-like or None, optional
+        The directory that the file will be created in. If None, the default temporary
+        directory is chosen as though by ``tempfile.gettempdir()``. Defaults to None.
+    prefix : str or None, optional
+        An optional file name prefix. If None, a default prefix is used. Defaults to
+        None.
+    suffix : str or None, optional
+        An optional file name prefix. If None, there will be no suffix. Defaults to
+        None.
+
+    Returns
+    -------
+    pathlib.Path
+        The absolute path to created file.
     """
-    shape = src.shape
-    if dst.shape != shape:
-        errmsg = (
-            "shape mismatch: src and dst must have the same shape, instead got"
-            f" {src.shape=} and {dst.shape=}"
-        )
+    if dir_ is not None:
+        dir_ = os.fspath(dir_)
+    file, filename = mkstemp(dir=dir_, prefix=prefix, suffix=suffix)
+    os.close(file)
+    return Path(filename)
+
+
+def slices(start: int, stop: int, step: int = 1) -> Iterator[slice]:
+    """
+    Iterate over slices spanning a range.
+
+    Yield successive non-overlapping slices of length `step` that span the half-open
+    interval from `start` to `stop` (excluding `stop` itself).
+
+    Parameters
+    ----------
+    start : int
+        The start of the range.
+    stop : int
+        The end of the range.
+    step : int, optional
+        The maximum length of each slice. The final slice may be smaller. Must be >= 1.
+        Defaults to 1.
+
+    Yields
+    ------
+    slice
+        A slice representing a sub-range of the specified range.
+    """
+    if step < 1:
+        errmsg = f"step must be >= 1, instead got {step}"
         raise ValueError(errmsg)
 
-    for block in BlockIterator(shape, chunks):
-        if transform is None:
-            dst[block] = src[block]
-        else:
-            dst[block] = transform(src[block])
+    while start < stop:
+        end = min(start + step, stop)
+        yield slice(start, end)
+        start = end
+
+
+def write_to_file(
+    dataset: InputDataset,
+    file: str | os.PathLike[str] | io.IOBase,
+    *,
+    batchsize: int = 512,
+    transform: Callable[[ArrayLike], np.ndarray] = np.asanyarray,
+    dtype: DTypeLike | None = None,
+) -> None:
+    """
+    Write the dataset contents to a file.
+
+    The data is written in batches by slicing along the leading axis of the dataset in
+    order to avoid holding the entire dataset in memory at once.
+
+    Parameters
+    ----------
+    dataset : snaphu.io.InputDataset
+        The input dataset.
+    file : path-like or file-like
+        An open file object or valid file path. If the path to an existing file is
+        provided, the file will be overwritten.
+    batchsize : int, optional
+        The maximum length of each batch of data along the leading axis of `dataset`.
+        Defaults to 512.
+    transform : callable, optional
+        An function that is applied to each batch of data from `dataset` before writing
+        it to the file. The function should take a single array_like parameter and
+        return a NumPy array. Defaults to `numpy.asanyarray`.
+    dtype : data-type or None, optional
+        The datatype used to store the dataset contents in the file. Each batch of data
+        will be cast to this datatype before writing it to the file. If None, the
+        datatype is inferred from the data after applying `transform`. Defaults to None.
+    """
+    # If the `file` argument was a path, open the file for writing in binary mode and
+    # truncate the file if it exists.
+    if isinstance(file, (str, os.PathLike)):
+        with Path(file).open("w+b") as file:
+            write_to_file(
+                dataset,
+                file,
+                batchsize=batchsize,
+                dtype=dtype,
+                transform=transform,
+            )
+        return
+
+    # The input dataset must be at least 1-D.
+    if dataset.ndim < 1:
+        errmsg = f"dataset must be at least 1-D, instead got {dataset.ndim=}"
+        raise ValueError(errmsg)
+
+    # Iterate over batches of data by slicing the dataset along its leading axis.
+    for slice_ in slices(0, dataset.shape[0], batchsize):
+        # Transform the batch of data as necessary and write it to the file.
+        arr = transform(dataset[slice_])
+        if dtype is not None:
+            arr = arr.astype(dtype, copy=False)
+        arr.tofile(file)
+
+
+def read_from_file(
+    dataset: OutputDataset,
+    file: str | os.PathLike[str] | io.IOBase,
+    *,
+    batchsize: int = 512,
+    dtype: DTypeLike | None = None,
+) -> None:
+    """
+    Populate the dataset contents by reading from a file.
+
+    The data is read in batches by slicing along the leading axis of the dataset in
+    order to avoid holding the entire dataset in memory at once.
+
+    The file size must not be less than the size of the dataset contents.
+
+    Parameters
+    ----------
+    dataset : snaphu.io.OutputDataset
+        The output dataset.
+    file : path-like or file-like
+        An open file object or valid path to an existing file.
+    batchsize : int, optional
+        The maximum length of each batch of data along the leading axis of `dataset`.
+        Defaults to 512.
+    dtype : data-type or None, optional
+        The datatype of the contents of the file. If None, the file contents will be
+        assumed to have the same datatype as the output dataset (including byte order).
+        Defaults to None.
+    """
+    # If the `file` argument was a path, open the file for reading in binary mode.
+    if isinstance(file, (str, os.PathLike)):
+        with Path(file).open("rb") as file:
+            read_from_file(dataset, file, batchsize=batchsize, dtype=dtype)
+        return
+
+    # The input dataset must be at least 1-D.
+    if dataset.ndim < 1:
+        errmsg = f"dataset must be at least 1-D, instead got {dataset.ndim=}"
+        raise ValueError(errmsg)
+
+    # If `dtype` was not specified, default to the dataset's dtype.
+    if dtype is None:
+        dtype = dataset.dtype
+
+    # Iterate over batches of data by slicing the dataset along its leading axis.
+    n = dataset.shape[0]
+    for slice_ in slices(0, n, batchsize):
+        # Infer the shape and size of the corresponding slice of the dataset.
+        shape = (slice_.stop - slice_.start,) + dataset.shape[1:]
+        size = np.prod(shape)
+
+        # Read a batch of data from the file.
+        dataset[slice_] = np.fromfile(file, dtype=dtype, count=size).reshape(shape)
 
 
 def nan_to_zero(arr: ArrayLike) -> np.ndarray:

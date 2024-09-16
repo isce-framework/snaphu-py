@@ -1,103 +1,119 @@
-import itertools
 import shutil
 import tempfile
-from collections.abc import Iterable
 from pathlib import Path
 
 import numpy as np
 import pytest
+from numpy.typing import DTypeLike
 
-from snaphu._util import BlockIterator, ceil_divide, scratch_directory
-
-
-class TestCeilDivide:
-    def test_positive(self):
-        assert ceil_divide(3, 2) == 2
-        assert ceil_divide(4, 2) == 2
-        assert ceil_divide(1, 1_000_000) == 1
-
-    def test_negative(self):
-        assert ceil_divide(-3, 2) == -1
-        assert ceil_divide(3, -2) == -1
-        assert ceil_divide(-3, -2) == 2
-
-        assert ceil_divide(-4, 2) == -2
-        assert ceil_divide(4, -2) == -2
-        assert ceil_divide(-4, -2) == 2
-
-    def test_zero(self):
-        assert ceil_divide(0, 1) == 0
-        assert ceil_divide(-0, 1) == 0
-
-    def test_divide_by_zero(self):
-        with pytest.warns(RuntimeWarning) as record:
-            ceil_divide(1, 0)
-
-        assert len(record) == 1
-        warning = record[0].message.args[0]
-        assert "divide by zero encountered" in warning
-
-    def test_arraylike(self):
-        result = ceil_divide([1, 2, 3, 4, 5], 2)
-        expected = [1, 1, 2, 2, 3]
-        np.testing.assert_array_equal(result, expected)
+from snaphu._util import read_from_file, scratch_directory, slices, write_to_file
 
 
-class TestBlockIterator:
-    @pytest.fixture
-    def blocks2d(self) -> BlockIterator:
-        return BlockIterator(shape=(100, 101), chunks=(25, 34))
+class TestSlices:
+    def test_is_iterator(self):
+        s = slices(0, 100, 10)
+        next(s)
 
-    def test_is_iterable(self, blocks2d: BlockIterator):
-        assert isinstance(blocks2d, Iterable)
+    def test_start_stop(self):
+        s = list(slices(0, 3))
+        assert s == [slice(0, 1, None), slice(1, 2, None), slice(2, 3, None)]
 
-    def test_attrs(self, blocks2d: BlockIterator):
-        assert blocks2d.shape == (100, 101)
-        assert blocks2d.chunks == (25, 34)
+    def test_start_stop_step(self):
+        s = list(slices(10, 20, 4))
+        assert s == [slice(10, 14, None), slice(14, 18, None), slice(18, 20, None)]
 
-    def test_nblocks(self, blocks2d: BlockIterator):
-        nblocks = len(list(blocks2d))
-        assert nblocks == 12
+    @pytest.mark.parametrize("step", [0, -1])
+    def test_bad_step(self, step: int):
+        errmsg = f"^step must be >= 1, instead got {step}$"
+        with pytest.raises(ValueError, match=errmsg):
+            list(slices(0, 100, step))
 
-    def test_iter(self, blocks2d: BlockIterator):
-        arr = np.zeros(blocks2d.shape, dtype=np.int32)
-        for block in blocks2d:
-            arr[block] += 1
-        np.testing.assert_array_equal(arr, 1)
+    def test_empty(self):
+        s1 = list(slices(100, 100))
+        assert s1 == []
+        s2 = list(slices(101, 100))
+        assert s2 == []
 
-    def test_blocks1d(self):
-        blocks = BlockIterator(shape=99, chunks=25)
-        assert blocks.shape == (99,)
-        assert blocks.chunks == (25,)
 
-        starts = [0, 25, 50, 75]
-        stops = [25, 50, 75, 99]
-        for block, start, stop in itertools.zip_longest(blocks, starts, stops):
-            (slice_,) = block
-            assert slice_.start == start
-            assert slice_.stop == stop
-            assert slice_.step is None
+class TestWriteToFile:
+    def test_filelike(self):
+        dtype = np.int32
+        shape = (100, 20)
+        in_arr = np.arange(np.prod(shape), dtype=dtype).reshape(shape)
+        with tempfile.TemporaryFile() as file:
+            write_to_file(in_arr, file, batchsize=10)
+            file.seek(0)
+            out_arr = np.fromfile(file, dtype=dtype).reshape(shape)
+        np.testing.assert_array_equal(in_arr, out_arr)
 
-    def test_shape_chunks_mismatch(self):
-        pattern = (
-            "^size mismatch: shape and chunks must have the same number of elements,"
-            r" instead got len\(shape\) != len\(chunks\) \(2 != 3\)$"
-        )
-        with pytest.raises(ValueError, match=pattern):
-            BlockIterator(shape=(300, 400), chunks=(3, 4, 5))
+    def test_pathlike(self):
+        dtype = np.int32
+        shape = (100, 20)
+        in_arr = np.arange(np.prod(shape), dtype=dtype).reshape(shape)
+        with tempfile.TemporaryDirectory() as dir_:
+            file = Path(dir_, "test.i4")
+            write_to_file(in_arr, file, batchsize=10)
+            out_arr = np.fromfile(file, dtype=dtype).reshape(shape)
+        np.testing.assert_array_equal(in_arr, out_arr)
 
-    def test_bad_shape(self):
-        pattern = r"^shape elements must all be > 0, instead got \(100, -1\)$"
-        with pytest.raises(ValueError, match=pattern):
-            BlockIterator(shape=(100, -1), chunks=(10, 10))
+    @pytest.mark.parametrize("dtype", ["<i4", ">i4"])
+    def test_endian(self, dtype: DTypeLike):
+        in_arr = np.arange(1000, dtype=np.int32)
+        with tempfile.TemporaryFile() as file:
+            write_to_file(in_arr, file, dtype=dtype)
+            file.seek(0)
+            out_arr = np.fromfile(file, dtype=dtype)
+        np.testing.assert_array_equal(in_arr, out_arr)
 
-    def test_bad_chunks(self):
-        pattern = r"^chunk elements must all be > 0, instead got \(10, -1\)$"
-        with pytest.raises(ValueError, match=pattern):
-            BlockIterator(shape=(100, 100), chunks=(10, -1))
+    def test_transform(self):
+        phase = np.linspace(-np.pi, np.pi, num=1001)
+        in_arr = np.exp(1j * phase)
+        with tempfile.TemporaryFile() as file:
+            write_to_file(in_arr, file, transform=np.angle)
+            file.seek(0)
+            out_arr = np.fromfile(file, dtype=np.float64)
+        np.testing.assert_allclose(out_arr, phase, atol=1e-6)
 
-    def test_repr(self, blocks2d: BlockIterator):
-        assert repr(blocks2d) == "BlockIterator(shape=(100, 101), chunks=(25, 34))"
+    def test_0d(self):
+        in_arr = np.int32(0)
+        with tempfile.TemporaryFile() as file:
+            errmsg = r"^dataset must be at least 1-D, instead got dataset\.ndim=0$"
+            with pytest.raises(ValueError, match=errmsg):
+                write_to_file(in_arr, file)
+
+
+class TestReadFromFile:
+    def test_filelike(self):
+        dtype = np.int32
+        shape = (101, 20)
+        in_arr = np.arange(np.prod(shape), dtype=dtype).reshape(shape)
+        out_arr = np.empty_like(in_arr)
+        with tempfile.TemporaryFile() as file:
+            in_arr.tofile(file)
+            file.seek(0)
+            read_from_file(out_arr, file, batchsize=10)
+        np.testing.assert_array_equal(in_arr, out_arr)
+
+    def test_pathlike(self):
+        dtype = np.int32
+        shape = (101, 20)
+        in_arr = np.arange(np.prod(shape), dtype=dtype).reshape(shape)
+        out_arr = np.empty_like(in_arr)
+        with tempfile.TemporaryDirectory() as dir_:
+            file = Path(dir_, "test.i4")
+            in_arr.tofile(file)
+            read_from_file(out_arr, file, batchsize=10)
+        np.testing.assert_array_equal(in_arr, out_arr)
+
+    def test_0d(self):
+        in_arr = np.int32(123)
+        out_arr = np.int32(0)
+        with tempfile.TemporaryFile() as file:
+            in_arr.tofile(file)
+            file.seek(0)
+            errmsg = r"^dataset must be at least 1-D, instead got dataset\.ndim=0$"
+            with pytest.raises(ValueError, match=errmsg):
+                read_from_file(out_arr, file)
 
 
 class TestScratchDirectory:
