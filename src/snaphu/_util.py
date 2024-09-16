@@ -6,7 +6,7 @@ import shutil
 from collections.abc import Callable, Generator, Iterator
 from contextlib import contextmanager
 from pathlib import Path
-from tempfile import mkdtemp
+from tempfile import mkdtemp, mkstemp
 
 import numpy as np
 from numpy.typing import ArrayLike, DTypeLike
@@ -15,11 +15,45 @@ from .io import InputDataset, OutputDataset
 
 __all__ = [
     "nan_to_zero",
+    "new_unique_file",
     "read_from_file",
     "scratch_directory",
     "slices",
     "write_to_file",
 ]
+
+
+def new_unique_file(
+    *,
+    dir_: str | os.PathLike[str] | None = None,
+    prefix: str | None = None,
+    suffix: str | None = None,
+) -> Path:
+    """
+    Create a new file with a unique file name.
+
+    Parameters
+    ----------
+    dir_ : str or path-like or None, optional
+        The directory that the file will be created in. If None, the default temporary
+        directory is chosen as though by ``tempfile.gettempdir()``. Defaults to None.
+    prefix : str or None, optional
+        An optional file name prefix. If None, a default prefix is used. Defaults to
+        None.
+    suffix : str or None, optional
+        An optional file name prefix. If None, there will be no suffix. Defaults to
+        None.
+
+    Returns
+    -------
+    pathlib.Path
+        The absolute path to created file.
+    """
+    if dir_ is not None:
+        dir_ = os.fspath(dir_)
+    file, filename = mkstemp(dir=dir_, prefix=prefix, suffix=suffix)
+    os.close(file)
+    return Path(filename)
 
 
 def slices(start: int, stop: int, step: int = 1) -> Iterator[slice]:
@@ -145,8 +179,8 @@ def read_from_file(
     """
     # If the `file` argument was a path, open the file for reading in binary mode.
     if isinstance(file, (str, os.PathLike)):
-        with Path(file).open("rb") as f:
-            read_from_file(dataset, f, batchsize=batchsize, dtype=dtype)
+        with Path(file).open("rb") as file:
+            read_from_file(dataset, file, batchsize=batchsize, dtype=dtype)
         return
 
     # The input dataset must be at least 1-D.

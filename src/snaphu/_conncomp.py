@@ -3,7 +3,6 @@ from __future__ import annotations
 import os
 import textwrap
 from pathlib import Path
-from tempfile import mkstemp
 from typing import overload
 
 import numpy as np
@@ -16,7 +15,13 @@ from ._check import (
     check_integer_dtype,
 )
 from ._snaphu import run_snaphu
-from ._util import nan_to_zero, read_from_file, scratch_directory, write_to_file
+from ._util import (
+    nan_to_zero,
+    new_unique_file,
+    read_from_file,
+    scratch_directory,
+    write_to_file,
+)
 from .io import InputDataset, OutputDataset
 
 __all__ = [
@@ -101,8 +106,8 @@ def regrow_conncomp_from_unw(
 
     # Write config parameters to file. The config file should have a descriptive name to
     # disambiguate it from the config file used for unwrapping.
-    _, config_file = mkstemp(
-        dir=scratchdir, prefix="snaphu-regrow-conncomps.config.", suffix=".txt"
+    config_file = new_unique_file(
+        dir_=scratchdir, prefix="snaphu-regrow-conncomps.config.", suffix=".txt"
     )
     Path(config_file).write_text(config)
 
@@ -273,11 +278,11 @@ def grow_conncomps(  # type: ignore[no-untyped-def]
         # Create a raw binary file in the scratch directory for the unwrapped phase and
         # copy the input data to it. (`mkstemp` is used to avoid data races in case the
         # same scratch directory was used for multiple SNAPHU processes.)
-        _, unw_file = mkstemp(dir=dir_, prefix="snaphu.unw.", suffix=".f4")
+        unw_file = new_unique_file(dir_=dir_, prefix="snaphu.unw.", suffix=".f4")
         write_to_file(unw, unw_file, transform=nan_to_zero, dtype=np.float32)
 
         # Copy the input coherence data to a raw binary file in the scratch directory.
-        _, corr_file = mkstemp(dir=dir_, prefix="snaphu.corr.", suffix=".f4")
+        corr_file = new_unique_file(dir_=dir_, prefix="snaphu.corr.", suffix=".f4")
         write_to_file(corr, corr_file, transform=nan_to_zero, dtype=np.float32)
 
         # If magnitude data was provided, copy it to a raw binary file in the scratch
@@ -285,7 +290,7 @@ def grow_conncomps(  # type: ignore[no-untyped-def]
         if mag is None:
             mag_file = None
         else:
-            _, mag_file = mkstemp(dir=dir_, prefix="snaphu.mag.", suffix=".f4")
+            mag_file = new_unique_file(dir_=dir_, prefix="snaphu.mag.", suffix=".f4")
             write_to_file(mag, mag_file, transform=nan_to_zero, dtype=np.float32)
 
         # If a mask was provided, copy the mask data to a raw binary file in the scratch
@@ -293,12 +298,14 @@ def grow_conncomps(  # type: ignore[no-untyped-def]
         if mask is None:
             mask_file = None
         else:
-            _, mask_file = mkstemp(dir=dir_, prefix="snaphu.mask.", suffix=".u1")
+            mask_file = new_unique_file(dir_=dir_, prefix="snaphu.mask.", suffix=".u1")
             write_to_file(mask, mask_file, dtype=np.bool_)
 
         # Create a raw file in the scratch directory for the output connected
         # components.
-        _, conncomp_file = mkstemp(dir=dir_, prefix="snaphu.conncomp.", suffix=".u4")
+        conncomp_file = new_unique_file(
+            dir_=dir_, prefix="snaphu.conncomp.", suffix=".u4"
+        )
 
         regrow_conncomp_from_unw(
             unw_file=unw_file,

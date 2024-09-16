@@ -3,7 +3,6 @@ from __future__ import annotations
 import os
 import textwrap
 from pathlib import Path
-from tempfile import mkstemp
 from typing import cast, overload
 
 import numpy as np
@@ -19,7 +18,13 @@ from ._check import (
 )
 from ._conncomp import regrow_conncomp_from_unw
 from ._snaphu import run_snaphu
-from ._util import nan_to_zero, read_from_file, scratch_directory, write_to_file
+from ._util import (
+    nan_to_zero,
+    new_unique_file,
+    read_from_file,
+    scratch_directory,
+    write_to_file,
+)
 from .io import InputDataset, OutputDataset
 
 __all__ = [
@@ -331,11 +336,11 @@ def unwrap(  # type: ignore[no-untyped-def]
         # Create a raw binary file in the scratch directory for the interferogram and
         # copy the input data to it. (`mkstemp` is used to avoid data races in case the
         # same scratch directory was used for multiple SNAPHU processes.)
-        _, igram_file = mkstemp(dir=dir_, prefix="snaphu.igram.", suffix=".c8")
+        igram_file = new_unique_file(dir_=dir_, prefix="snaphu.igram.", suffix=".c8")
         write_to_file(igram, igram_file, transform=nan_to_zero, dtype=np.complex64)
 
         # Copy the input coherence data to a raw binary file in the scratch directory.
-        _, corr_file = mkstemp(dir=dir_, prefix="snaphu.corr.", suffix=".f4")
+        corr_file = new_unique_file(dir_=dir_, prefix="snaphu.corr.", suffix=".f4")
         write_to_file(corr, corr_file, transform=nan_to_zero, dtype=np.float32)
 
         # If a mask was provided, copy the mask data to a raw binary file in the scratch
@@ -343,12 +348,14 @@ def unwrap(  # type: ignore[no-untyped-def]
         if mask is None:
             mask_file = None
         else:
-            _, mask_file = mkstemp(dir=dir_, prefix="snaphu.mask.", suffix=".u1")
+            mask_file = new_unique_file(dir_=dir_, prefix="snaphu.mask.", suffix=".u1")
             write_to_file(mask, mask_file, dtype=np.bool_)
 
         # Create files in the scratch directory for SNAPHU outputs.
-        _, unw_file = mkstemp(dir=dir_, prefix="snaphu.unw.", suffix=".f4")
-        _, conncomp_file = mkstemp(dir=dir_, prefix="snaphu.conncomp.", suffix=".u4")
+        unw_file = new_unique_file(dir_=dir_, prefix="snaphu.unw.", suffix=".f4")
+        conncomp_file = new_unique_file(
+            dir_=dir_, prefix="snaphu.conncomp.", suffix=".u4"
+        )
 
         config = textwrap.dedent(
             f"""\
@@ -387,7 +394,7 @@ def unwrap(  # type: ignore[no-untyped-def]
             config += "SINGLETILEREOPTIMIZE TRUE\n"
 
         # Write config parameters to file.
-        _, config_file = mkstemp(dir=dir_, prefix="snaphu.config.", suffix=".txt")
+        config_file = new_unique_file(dir_=dir_, prefix="snaphu.config.", suffix=".txt")
         Path(config_file).write_text(config)
 
         # Run SNAPHU with the specified parameters.
@@ -403,7 +410,7 @@ def unwrap(  # type: ignore[no-untyped-def]
             # for example, to detect zero-magnitude pixels which should be masked out
             # (i.e. connected component label set to 0). So compute the interferogram
             # magnitude and pass it as a separate input file.
-            _, mag_file = mkstemp(dir=dir_, prefix="snaphu.mag.", suffix=".f4")
+            mag_file = new_unique_file(dir_=dir_, prefix="snaphu.mag.", suffix=".f4")
             write_to_file(igram, mag_file, transform=np.abs, dtype=np.float32)
 
             # Re-run SNAPHU to compute new connected components from the unwrapped phase
