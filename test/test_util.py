@@ -115,6 +115,25 @@ class TestReadFromFile:
             with pytest.raises(ValueError, match=errmsg):
                 read_from_file(out_arr, file)
 
+    def test_1d(self):
+        in_arr = np.arange(999)
+        out_arr = np.empty_like(in_arr)
+        with tempfile.TemporaryFile() as file:
+            in_arr.tofile(file)
+            file.seek(0)
+            read_from_file(out_arr, file, batchsize=100)
+        np.testing.assert_array_equal(in_arr, out_arr)
+
+    def test_3d(self):
+        shape = (101, 20, 30)
+        in_arr = np.arange(np.prod(shape)).reshape(shape)
+        out_arr = np.empty_like(in_arr)
+        with tempfile.TemporaryFile() as file:
+            in_arr.tofile(file)
+            file.seek(0)
+            read_from_file(out_arr, file, batchsize=10)
+        np.testing.assert_array_equal(in_arr, out_arr)
+
 
 class TestScratchDirectory:
     def test_temp_directory(self):
