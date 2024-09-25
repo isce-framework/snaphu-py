@@ -23,6 +23,11 @@ def has_rasterio() -> bool:
     return importlib.util.find_spec("rasterio") is not None
 
 
+def numpy_version() -> np.lib.NumpyVersion:
+    """Get the version identifier of the imported NumPy package."""
+    return np.lib.NumpyVersion(np.__version__)
+
+
 @contextmanager
 def make_geotiff_raster(
     fp: str | os.PathLike[str],
@@ -225,6 +230,21 @@ class TestRaster:
         arr = np.asarray(geotiff_raster)
         assert arr.shape == geotiff_raster.shape
         assert arr.dtype == geotiff_raster.dtype
+
+    @pytest.mark.parametrize("dtype", [np.int32, np.float64])
+    def test_asarray_dtype(self, geotiff_raster: snaphu.io.Raster, dtype: DTypeLike):
+        arr = np.asarray(geotiff_raster, dtype=dtype)
+        assert arr.dtype == dtype
+
+    @pytest.mark.skipif(numpy_version() < "2.0.0", reason="requires numpy>=2")
+    def test_asarray_copy(self, geotiff_raster: snaphu.io.Raster):
+        # Check that these statements don't raise exceptions.
+        np.asarray(geotiff_raster, copy=True)
+        np.asarray(geotiff_raster, copy=None)
+
+        regex = "^unable to avoid copy while creating an array as requested$"
+        with pytest.raises(ValueError, match=regex):
+            np.asarray(geotiff_raster, copy=False)
 
     def test_setitem_getitem_roundtrip(self, geotiff_raster: snaphu.io.Raster):
         data = np.arange(20, dtype=np.int32).reshape(4, 5)

@@ -267,8 +267,15 @@ class Raster(InputDataset, OutputDataset, AbstractContextManager["Raster"]):
     def __exit__(self, exc_type, exc_value, traceback):  # type: ignore[no-untyped-def]
         self.close()
 
-    def __array__(self) -> np.ndarray:
-        return self.dataset.read(self.band)
+    def __array__(
+        self, dtype: DTypeLike | None = None, copy: bool | None = None
+    ) -> np.ndarray:
+        if not copy and (copy is not None):
+            errmsg = "unable to avoid copy while creating an array as requested"
+            raise ValueError(errmsg)
+
+        data = self.dataset.read(self.band)
+        return data if (dtype is None) else data.astype(dtype)
 
     def _window_from_slices(
         self, key: slice | tuple[slice, ...]
