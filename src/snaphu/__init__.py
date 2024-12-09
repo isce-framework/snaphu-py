@@ -6,10 +6,10 @@ from ._unwrap import unwrap
 from ._version import __version__, __version_tuple__
 
 __all__ = [
+    "__version__",
+    "__version_tuple__",
     "get_snaphu_version",
     "grow_conncomps",
     "io",
     "unwrap",
-    "__version__",
-    "__version_tuple__",
 ]
