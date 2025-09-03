@@ -98,11 +98,13 @@ select = [
   "YTT", # flake8-2020
 ]
 ignore = [
-  "D100", # Missing docstring in public module
-  "D104", # Missing docstring in public package
-  "D105", # Missing docstring in magic method
-  "PLR",  # Pylint Refactor
+  "D100",    # Missing docstring in public module
+  "D104",    # Missing docstring in public package
+  "D105",    # Missing docstring in magic method
+  "PLR",     # Pylint Refactor
+  "PLC0415", # `import` should be at the top-level of a file
 ]
+typing-extensions = false
 
 [tool.ruff.lint.per-file-ignores]
 "**/__init__.py" = ["F401"]
