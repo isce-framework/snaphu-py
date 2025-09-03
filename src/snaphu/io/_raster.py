@@ -247,7 +247,7 @@ class Raster(InputDataset, OutputDataset, AbstractContextManager["Raster"]):
         float or None : The raster's nodata value (may be unset).
 
         The raster's nodata value, or None if no nodata value was set.
-        """
+        """  # noqa: D403
         return self.dataset.nodatavals[self.band - 1]  # type: ignore[no-any-return]
 
     @property
@@ -268,7 +268,7 @@ class Raster(InputDataset, OutputDataset, AbstractContextManager["Raster"]):
         self.close()
 
     def __array__(
-        self, dtype: DTypeLike | None = None, copy: bool | None = None
+        self, dtype: DTypeLike | None = None, *, copy: bool | None = None
     ) -> np.ndarray:
         if not copy and (copy is not None):
             errmsg = "unable to avoid copy while creating an array as requested"
