@@ -31,7 +31,7 @@ jobs:
     name: Build & test (${{ matrix.label }})
     runs-on: ${{ matrix.runner }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with: { fetch-depth: 0, submodules: true }
       - uses: actions/setup-python@v5
         with: { python-version: ">=3.9" }
@@ -46,7 +46,7 @@ jobs:
     name: Build & test (minimum requirements)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with: { fetch-depth: 0, submodules: true }
       - uses: actions/setup-python@v5
         with: { python-version: "3.9" }
@@ -57,7 +57,7 @@ jobs:
     name: Build & test (no optional dependencies)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with: { fetch-depth: 0, submodules: true }
       - uses: actions/setup-python@v5
         with: { python-version: ">=3.9" }
@@ -82,9 +82,9 @@ jobs:
     name: Build, lint, & test wheels (${{ matrix.label }})
     runs-on: ${{ matrix.runner }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with: { fetch-depth: 0, submodules: true }
-      - uses: pypa/cibuildwheel@v2.23.0
+      - uses: pypa/cibuildwheel@v3.1.4
         env:
           CIBW_ARCHS: ${{ matrix.arch }}
           CIBW_TEST_REQUIRES: pytest>=6 pytest-cov>=3
@@ -104,7 +104,7 @@ jobs:
     name: Build & lint sdist
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with: { fetch-depth: 0, submodules: true }
       - run: pipx run build --sdist
       - run: pipx run twine check --strict dist/*
@@ -125,7 +125,7 @@ jobs:
     permissions:
       id-token: write
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v5
         with:
           pattern: ${{ env.artifact_prefix }}-*
           path: dist/
@@ -150,7 +150,7 @@ jobs:
     env:
       name_and_tag: snaphu-py-${{ github.ref_name }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with: { fetch-depth: 0, submodules: true }
       - run: |
           pipx run git-archive-all ${{ env.name_and_tag }}.zip
@@ -179,7 +179,7 @@ jobs:
     permissions:
       id-token: write
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v5
         with:
           pattern: ${{ env.artifact_prefix }}-*
           path: dist/
