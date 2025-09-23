@@ -84,7 +84,7 @@ jobs:
     steps:
       - uses: actions/checkout@v5
         with: { fetch-depth: 0, submodules: true }
-      - uses: pypa/cibuildwheel@v3.1.4
+      - uses: pypa/cibuildwheel@v3.2.0
         env:
           CIBW_ARCHS: ${{ matrix.arch }}
           CIBW_TEST_REQUIRES: pytest>=6 pytest-cov>=3
