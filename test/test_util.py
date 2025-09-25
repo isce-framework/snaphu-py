@@ -194,3 +194,14 @@ class TestScratchDirectory:
             # Clean up the directory if it wasn't automatically removed.
             if scratchdir.is_dir():
                 shutil.rmtree(scratchdir)
+
+    def test_exception(self):
+        # Test that the scratch directory is properly cleaned up even when an exception
+        # is raised within the `with` block.
+        try:
+            with scratch_directory() as scratchdir:
+                raise RuntimeError
+        except:
+            pass
+
+        assert not scratchdir.exists()
