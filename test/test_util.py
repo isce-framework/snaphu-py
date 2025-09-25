@@ -200,8 +200,8 @@ class TestScratchDirectory:
         # is raised within the `with` block.
         try:
             with scratch_directory() as scratchdir:
-                raise RuntimeError
-        except:
+                raise RuntimeError  # noqa: TRY301
+        except RuntimeError:
             pass
 
         assert not scratchdir.exists()
