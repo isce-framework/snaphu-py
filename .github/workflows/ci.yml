@@ -84,7 +84,7 @@ jobs:
     steps:
       - uses: actions/checkout@v5
         with: { fetch-depth: 0, submodules: true }
-      - uses: pypa/cibuildwheel@v3.2.0
+      - uses: pypa/cibuildwheel@v3.2.1
         env:
           CIBW_ARCHS: ${{ matrix.arch }}
           CIBW_TEST_REQUIRES: pytest>=6 pytest-cov>=3
@@ -95,7 +95,7 @@ jobs:
           pip install check-wheel-contents
           check-wheel-contents ./wheelhouse/*.whl
       - if: github.event_name == 'push'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: ${{ env.artifact_prefix }}-wheels-${{ matrix.runner }}-${{ matrix.arch }}
           path: ./wheelhouse/*.whl
@@ -109,7 +109,7 @@ jobs:
       - run: pipx run build --sdist
       - run: pipx run twine check --strict dist/*
       - if: github.event_name == 'push'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: ${{ env.artifact_prefix }}-sdist
           path: dist/*.tar.gz
@@ -125,7 +125,7 @@ jobs:
     permissions:
       id-token: write
     steps:
-      - uses: actions/download-artifact@v5
+      - uses: actions/download-artifact@v6
         with:
           pattern: ${{ env.artifact_prefix }}-*
           path: dist/
@@ -179,7 +179,7 @@ jobs:
     permissions:
       id-token: write
     steps:
-      - uses: actions/download-artifact@v5
+      - uses: actions/download-artifact@v6
         with:
           pattern: ${{ env.artifact_prefix }}-*
           path: dist/
