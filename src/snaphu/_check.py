@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import math
+
 import numpy as np
 
 from .io import InputDataset, OutputDataset
@@ -106,11 +108,11 @@ def check_dataset_sizes(
         If the tile overlaps type is unknown.
     """
     if isinstance(tile_overlap, int):
-        x_overlap = y_overlap = tile_overlap
+        y_overlap = x_overlap = tile_overlap
     elif isinstance(tile_overlap, tuple):
         # cannot unpack, tile_overlap shape is checked later
-        x_overlap = tile_overlap[0]
-        y_overlap = tile_overlap[1]
+        y_overlap = tile_overlap[0]
+        x_overlap = tile_overlap[1]
 
     else:
         msg = f"Unknown format tile overlaps: {tile_overlap}"
@@ -128,10 +130,13 @@ def check_dataset_sizes(
                 return
 
         # in case tile exceeds max array size
-        tile_shapes_max = (
-            arr.shape[0] + 1 // ntiles[0] + x_overlap,
-            arr.shape[1] + 1 // ntiles[1] + y_overlap,
-        )
+        def _calc_tile_shape(array_len: int, num_tiles: int, overlap_len: int):
+            # tile shape calc similar to SetupTile in snaphu.c
+            return math.ceil((array_len + (num_tiles - 1) * overlap_len) / num_tiles)
+
+        tile_height = _calc_tile_shape(arr.shape[0], ntiles[0], y_overlap)
+        tile_width = _calc_tile_shape(arr.shape[1], ntiles[1], x_overlap)
+        tile_shapes_max = (tile_height, tile_width)
         for size in tile_shapes_max:
             if size > LARGESHORT:
                 msg = f"dataset {name} too large for snaphu, shape: {arr.shape}"

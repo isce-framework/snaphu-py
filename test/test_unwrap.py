@@ -194,16 +194,20 @@ class TestUnwrap:
                 (32001, 128),
                 {"regrow_conncomps": False},
             ),
-            (  # tiling will work, but regrowing too large
-                (32001, 128),
-                {"ntiles": (2, 2), "tile_overlap": (64, 64), "regrow_conncomps": True},
+            (  # no regrowing, but tile 1 pixel too large
+                (63937, 128),
+                {
+                    "ntiles": (2, 2),
+                    "tile_overlap": (64, 64),
+                    "regrow_conncomps": False,
+                },
             ),
-            (  # tile overlaps too large
+            (  # regrow on, single_tile too large due to overlap
                 (128, 128),
                 {
                     "ntiles": (2, 2),
-                    "tile_overlap": (32001, 32001),
-                    "regrow_conncomps": True,
+                    "tile_overlap": (63873, 64),
+                    "single_tile_reoptimize": True,
                 },
             ),
         ],
