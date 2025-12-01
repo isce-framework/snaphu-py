@@ -13,6 +13,7 @@ from ._check import (
     check_complex_dtype,
     check_cost_mode,
     check_dataset_shapes,
+    check_dataset_sizes,
     check_float_dtype,
     check_integer_dtype,
 )
@@ -331,6 +332,24 @@ def unwrap(  # type: ignore[no-untyped-def]
     ntiles, tile_overlap, nproc = normalize_and_validate_tiling_params(
         ntiles=ntiles, tile_overlap=tile_overlap, nproc=nproc
     )
+
+    # Ensure that input & output datsets are not too large
+    check_dataset_sizes(
+        ntiles,
+        tile_overlap,
+        regrow_conncomps=regrow_conncomps,
+        single_tile_reoptimize=single_tile_reoptimize,
+        unw=unw,
+        conncomp=conncomp,
+    )
+    if mask is not None:
+        check_dataset_sizes(
+            ntiles,
+            tile_overlap,
+            regrow_conncomps=regrow_conncomps,
+            single_tile_reoptimize=single_tile_reoptimize,
+            mask=mask,
+        )
 
     with scratch_directory(scratchdir, delete=delete_scratch) as dir_:
         # Create a raw binary file in the scratch directory for the interferogram and

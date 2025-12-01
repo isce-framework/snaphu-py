@@ -15,6 +15,9 @@ __all__ = [
 ]
 
 
+LARGESHORT = 32000
+
+
 def check_2d_shapes(**shapes: tuple[int, ...]) -> None:
     """
     Ensure that the input tuples are valid 2-D shapes.
@@ -68,6 +71,71 @@ def check_dataset_shapes(
                 f" {name}.shape={arr.shape}"
             )
             raise ValueError(errmsg)
+
+
+def check_dataset_sizes(
+    ntiles: tuple[int, int],
+    tile_overlap: int | tuple[int, int],
+    *,
+    regrow_conncomps: bool = True,
+    single_tile_reoptimize: bool = False,
+    **datasets: InputDataset | OutputDataset,
+) -> None:
+    """
+    Ensure that one or more datasets have shape that snaphu can handle.
+
+    Parameters
+    ----------
+    ntiles : (int, int)
+        Number of tiles used in each dimension.
+    tile_overlap: int or (int, int)
+        Overlap between tiles.
+    regrow_conncomps : bool
+        Whether to regrow connected components after tiled unwrapping.
+    single_tile_reoptimize: bool
+        Whether to use single tile reoptimization after tiled unwrapping.
+    **datasets : dict, optional
+        Datasets whose shape must be equal to `shape`. The name of each keyword argument
+        is used to format the error message in case of a size exception.
+
+    Raises
+    ------
+    ValueError
+        If any dataset had a too large shape.
+    TypeError
+        If the tile overlaps type is unknown.
+    """
+    if isinstance(tile_overlap, int):
+        x_overlap = y_overlap = tile_overlap
+    elif isinstance(tile_overlap, tuple):
+        # cannot unpack, tile_overlap shape is checked later
+        x_overlap = tile_overlap[0]
+        y_overlap = tile_overlap[1]
+
+    else:
+        msg = f"Unknown format tile overlaps: {tile_overlap}"
+        raise TypeError(msg)
+
+    for name, arr in datasets.items():
+        skip_tiling: bool = ntiles == (1, 1)
+        if regrow_conncomps or single_tile_reoptimize or skip_tiling:
+            # a single tile is input for snaphu
+            for size in arr.shape:
+                if size > LARGESHORT:
+                    msg = f"dataset {name} too large for snaphu, shape: {arr.shape}"
+                    raise ValueError(msg)
+            if skip_tiling:
+                return
+
+        # in case tile exceeds max array size
+        tile_shapes_max = (
+            arr.shape[0] + 1 // ntiles[0] + x_overlap,
+            arr.shape[1] + 1 // ntiles[1] + y_overlap,
+        )
+        for size in tile_shapes_max:
+            if size > LARGESHORT:
+                msg = f"dataset {name} too large for snaphu, shape: {arr.shape}"
+                raise ValueError(msg)
 
 
 def check_complex_dtype(**datasets: InputDataset | OutputDataset) -> None:

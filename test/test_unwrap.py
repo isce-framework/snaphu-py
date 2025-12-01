@@ -1,4 +1,5 @@
 from typing import Any
+from unittest.mock import MagicMock
 
 import numpy as np
 import pytest
@@ -182,6 +183,43 @@ class TestUnwrap:
         )
         with pytest.raises(ValueError, match=pattern):
             snaphu.unwrap(igram, corr, nlooks=100.0)
+
+    @pytest.mark.parametrize(
+        (
+            "arr_shape",
+            "kwargs",
+        ),
+        [
+            (  # conncomps not on, but still too large
+                (32001, 128),
+                {"regrow_conncomps": False},
+            ),
+            (  # tiling will work, but regrowing too large
+                (32001, 128),
+                {"ntiles": (2, 2), "tile_overlap": (64, 64), "regrow_conncomps": True},
+            ),
+            (  # tile overlaps too large
+                (128, 128),
+                {
+                    "ntiles": (2, 2),
+                    "tile_overlap": (32001, 32001),
+                    "regrow_conncomps": True,
+                },
+            ),
+        ],
+    )
+    def test_shape_too_large(self, arr_shape: tuple[int, int], kwargs: dict[str, Any]):
+        igram = MagicMock(spec=np.ndarray)
+        igram.shape = arr_shape
+        igram.ndim = 2
+        igram.dtype = np.dtypes.Complex64DType()
+        corr = MagicMock(spec=np.ndarray)
+        corr.shape = arr_shape
+        corr.ndim = 2
+        corr.dtype = np.dtypes.Float32DType()
+        pattern = r"too large for snaphu"
+        with pytest.raises(ValueError, match=pattern):
+            snaphu.unwrap(igram, corr, nlooks=1.0, **kwargs)
 
     def test_bad_igram_dtype(self):
         shape = (128, 128)
