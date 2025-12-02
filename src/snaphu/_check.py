@@ -114,7 +114,7 @@ def check_dataset_sizes(
         y_overlap = tile_overlap[0]
         x_overlap = tile_overlap[1]
     else:
-        msg = f"Unknown format tile overlaps: {tile_overlap}"
+        msg = f"got {type(tile_overlap)=}, expected int or tuple"
         raise TypeError(msg)
 
     for name, arr in datasets.items():
