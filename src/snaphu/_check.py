@@ -121,10 +121,9 @@ def check_dataset_sizes(
         skip_tiling: bool = ntiles == (1, 1)
         if regrow_conncomps or single_tile_reoptimize or skip_tiling:
             # a single tile is input for snaphu
-            for size in arr.shape:
-                if size > LARGESHORT:
-                    msg = f"dataset {name} too large for snaphu, shape: {arr.shape}"
-                    raise ValueError(msg)
+            if any(n > LARGESHORT for n in arr.shape):
+                msg = f"dataset {name} too large for SNAPHU, shape: {arr.shape}"
+                raise ValueError(msg)
             if skip_tiling:
                 return
 
