@@ -113,7 +113,6 @@ def check_dataset_sizes(
         # cannot unpack, tile_overlap shape is checked later
         y_overlap = tile_overlap[0]
         x_overlap = tile_overlap[1]
-
     else:
         msg = f"Unknown format tile overlaps: {tile_overlap}"
         raise TypeError(msg)
