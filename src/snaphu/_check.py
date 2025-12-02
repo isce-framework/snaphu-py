@@ -125,7 +125,7 @@ def check_dataset_sizes(
                 msg = f"dataset {name} too large for SNAPHU, shape: {arr.shape}"
                 raise ValueError(msg)
             if skip_tiling:
-                return
+                continue
 
         # in case tile exceeds max array size
         def _calc_tile_shape(array_len: int, num_tiles: int, overlap_len: int):
