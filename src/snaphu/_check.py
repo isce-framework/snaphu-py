@@ -137,7 +137,11 @@ def check_dataset_sizes(
         tile_shapes_max = (tile_height, tile_width)
         for size in tile_shapes_max:
             if size > LARGESHORT:
-                msg = f"dataset {name} too large for snaphu, shape: {arr.shape}"
+                msg = (
+                    f"tile dimensions for {name} dataset are {tile_shapes_max}, which"
+                    " exceed the max supported by SNAPHU. Consider increasing number"
+                    " of tiles"
+                )
                 raise ValueError(msg)
 
 
