@@ -128,7 +128,7 @@ def check_dataset_sizes(
                 continue
 
         # in case tile exceeds max array size
-        def _calc_tile_shape(array_len: int, num_tiles: int, overlap_len: int):
+        def _calc_tile_shape(array_len: int, num_tiles: int, overlap_len: int) -> int:
             # tile shape calc similar to SetupTile in snaphu.c
             return math.ceil((array_len + (num_tiles - 1) * overlap_len) / num_tiles)
 
