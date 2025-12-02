@@ -17,7 +17,7 @@ __all__ = [
 ]
 
 
-LARGESHORT = 32000
+LARGESHORT = 32000  # needs to match LARGESHORT in snaphu.h
 
 
 def check_2d_shapes(**shapes: tuple[int, ...]) -> None:
@@ -122,7 +122,11 @@ def check_dataset_sizes(
         if regrow_conncomps or single_tile_reoptimize or skip_tiling:
             # a single tile is input for snaphu
             if any(n > LARGESHORT for n in arr.shape):
-                msg = f"dataset {name} too large for SNAPHU, shape: {arr.shape}"
+                msg = (
+                    f"{name} dataset with shape {arr.shape} exceeds max dimensions"
+                    " supported by SNAPHU. Consider using tiling and disabling the"
+                    " regrow_conncomps and single_tile_reoptimize options"
+                )
                 raise ValueError(msg)
             if skip_tiling:
                 continue
@@ -135,14 +139,13 @@ def check_dataset_sizes(
         tile_height = _calc_tile_shape(arr.shape[0], ntiles[0], y_overlap)
         tile_width = _calc_tile_shape(arr.shape[1], ntiles[1], x_overlap)
         tile_shapes_max = (tile_height, tile_width)
-        for size in tile_shapes_max:
-            if size > LARGESHORT:
-                msg = (
-                    f"tile dimensions for {name} dataset are {tile_shapes_max}, which"
-                    " exceed the max supported by SNAPHU. Consider increasing number"
-                    " of tiles"
-                )
-                raise ValueError(msg)
+        if any(n > LARGESHORT for n in tile_shapes_max):
+            msg = (
+                f"tile dimensions for {name} dataset are {tile_shapes_max}, which"
+                " exceed the max supported by SNAPHU. Consider increasing number"
+                " of tiles"
+            )
+            raise ValueError(msg)
 
 
 def check_complex_dtype(**datasets: InputDataset | OutputDataset) -> None:

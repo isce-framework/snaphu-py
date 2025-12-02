@@ -188,11 +188,13 @@ class TestUnwrap:
         (
             "arr_shape",
             "kwargs",
+            "err_msg",
         ),
         [
             (  # conncomps not on, but still too large
                 (32001, 128),
                 {"regrow_conncomps": False},
+                r"igram dataset with shape \(32001, 128\) exceeds max dimensions",
             ),
             (  # no regrowing, but tile 1 pixel too large
                 (63937, 128),
@@ -200,7 +202,9 @@ class TestUnwrap:
                     "ntiles": (2, 2),
                     "tile_overlap": (64, 64),
                     "regrow_conncomps": False,
+                    "single_tile_reoptimize": False,
                 },
+                r"tile dimensions for igram dataset are \(32001, 96\)",
             ),
             (  # regrow on, single_tile too large due to overlap
                 (128, 128),
@@ -209,10 +213,13 @@ class TestUnwrap:
                     "tile_overlap": (63873, 64),
                     "single_tile_reoptimize": True,
                 },
+                r"tile dimensions for igram dataset are \(32001, 96\)",
             ),
         ],
     )
-    def test_shape_too_large(self, arr_shape: tuple[int, int], kwargs: dict[str, Any]):
+    def test_shape_too_large(
+        self, arr_shape: tuple[int, int], kwargs: dict[str, Any], err_msg: str
+    ):
         igram = MagicMock(spec=np.ndarray)
         igram.shape = arr_shape
         igram.ndim = 2
@@ -221,8 +228,7 @@ class TestUnwrap:
         corr.shape = arr_shape
         corr.ndim = 2
         corr.dtype = np.dtypes.Float32DType()
-        pattern = r"too large for snaphu"
-        with pytest.raises(ValueError, match=pattern):
+        with pytest.raises(ValueError, match=err_msg):
             snaphu.unwrap(igram, corr, nlooks=1.0, **kwargs)
 
     def test_bad_igram_dtype(self):
