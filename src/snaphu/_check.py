@@ -84,7 +84,7 @@ def check_dataset_sizes(
     **datasets: InputDataset | OutputDataset,
 ) -> None:
     """
-    Ensure that one or more datasets have shape that snaphu can handle.
+    Ensure that one or more datasets have shape that SNAPHU can handle.
 
     Parameters
     ----------
