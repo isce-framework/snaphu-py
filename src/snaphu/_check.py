@@ -97,7 +97,7 @@ def check_dataset_sizes(
     single_tile_reoptimize: bool
         Whether to use single tile reoptimization after tiled unwrapping.
     **datasets : dict, optional
-        Datasets whose shape must be equal to `shape`. The name of each keyword argument
+        Datasets to be processed with SNAPHU. The name of each keyword argument
         is used to format the error message in case of a size exception.
 
     Raises
