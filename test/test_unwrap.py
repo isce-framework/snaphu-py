@@ -223,11 +223,11 @@ class TestUnwrap:
         igram = MagicMock(spec=np.ndarray)
         igram.shape = arr_shape
         igram.ndim = 2
-        igram.dtype = np.dtypes.Complex64DType()
+        igram.dtype = np.complex64
         corr = MagicMock(spec=np.ndarray)
         corr.shape = arr_shape
         corr.ndim = 2
-        corr.dtype = np.dtypes.Float32DType()
+        corr.dtype = np.float32
         with pytest.raises(ValueError, match=err_msg):
             snaphu.unwrap(igram, corr, nlooks=1.0, **kwargs)
 
