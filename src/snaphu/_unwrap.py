@@ -13,6 +13,7 @@ from ._check import (
     check_complex_dtype,
     check_cost_mode,
     check_dataset_shapes,
+    check_dataset_sizes,
     check_float_dtype,
     check_integer_dtype,
 )
@@ -330,6 +331,15 @@ def unwrap(  # type: ignore[no-untyped-def]
     # Validate inputs related to tiling and coerce them to the expected types.
     ntiles, tile_overlap, nproc = normalize_and_validate_tiling_params(
         ntiles=ntiles, tile_overlap=tile_overlap, nproc=nproc
+    )
+
+    # Ensure that the dataset (and tile) dimensions are not too large.
+    check_dataset_sizes(
+        ntiles,
+        tile_overlap,
+        regrow_conncomps=regrow_conncomps,
+        single_tile_reoptimize=single_tile_reoptimize,
+        igram=igram,
     )
 
     with scratch_directory(scratchdir, delete=delete_scratch) as dir_:

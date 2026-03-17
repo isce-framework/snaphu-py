@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import math
+
 import numpy as np
 
 from .io import InputDataset, OutputDataset
@@ -13,6 +15,9 @@ __all__ = [
     "check_float_dtype",
     "check_integer_dtype",
 ]
+
+
+LARGESHORT = 32000  # needs to match LARGESHORT in snaphu.h
 
 
 def check_2d_shapes(**shapes: tuple[int, ...]) -> None:
@@ -68,6 +73,79 @@ def check_dataset_shapes(
                 f" {name}.shape={arr.shape}"
             )
             raise ValueError(errmsg)
+
+
+def check_dataset_sizes(
+    ntiles: tuple[int, int],
+    tile_overlap: int | tuple[int, int],
+    *,
+    regrow_conncomps: bool = True,
+    single_tile_reoptimize: bool = False,
+    **datasets: InputDataset | OutputDataset,
+) -> None:
+    """
+    Ensure that one or more datasets have shape that SNAPHU can handle.
+
+    Parameters
+    ----------
+    ntiles : (int, int)
+        Number of tiles used in each dimension.
+    tile_overlap: int or (int, int)
+        Overlap between tiles.
+    regrow_conncomps : bool
+        Whether to regrow connected components after tiled unwrapping.
+    single_tile_reoptimize: bool
+        Whether to use single tile reoptimization after tiled unwrapping.
+    **datasets : dict, optional
+        Datasets to be processed with SNAPHU. The name of each keyword argument
+        is used to format the error message in case of a size exception.
+
+    Raises
+    ------
+    ValueError
+        If any dataset had a too large shape.
+    TypeError
+        If the tile overlaps type is unknown.
+    """
+    if isinstance(tile_overlap, int):
+        y_overlap = x_overlap = tile_overlap
+    elif isinstance(tile_overlap, tuple):
+        # cannot unpack, tile_overlap shape is checked later
+        y_overlap = tile_overlap[0]
+        x_overlap = tile_overlap[1]
+    else:
+        msg = f"got {type(tile_overlap)=}, expected int or tuple"
+        raise TypeError(msg)
+
+    for name, arr in datasets.items():
+        skip_tiling: bool = ntiles == (1, 1)
+        if regrow_conncomps or single_tile_reoptimize or skip_tiling:
+            # a single tile is input for snaphu
+            if any(n > LARGESHORT for n in arr.shape):
+                msg = (
+                    f"{name} dataset with shape {arr.shape} exceeds max dimensions"
+                    " supported by SNAPHU. Consider using tiling and disabling the"
+                    " regrow_conncomps and single_tile_reoptimize options"
+                )
+                raise ValueError(msg)
+            if skip_tiling:
+                continue
+
+        # in case tile exceeds max array size
+        def _calc_tile_shape(array_len: int, num_tiles: int, overlap_len: int) -> int:
+            # tile shape calc similar to SetupTile in snaphu.c
+            return math.ceil((array_len + (num_tiles - 1) * overlap_len) / num_tiles)
+
+        tile_height = _calc_tile_shape(arr.shape[0], ntiles[0], y_overlap)
+        tile_width = _calc_tile_shape(arr.shape[1], ntiles[1], x_overlap)
+        tile_shapes_max = (tile_height, tile_width)
+        if any(n > LARGESHORT for n in tile_shapes_max):
+            msg = (
+                f"tile dimensions for {name} dataset are {tile_shapes_max}, which"
+                " exceed the max supported by SNAPHU. Consider increasing number"
+                " of tiles"
+            )
+            raise ValueError(msg)
 
 
 def check_complex_dtype(**datasets: InputDataset | OutputDataset) -> None:
